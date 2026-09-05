@@ -1,75 +1,87 @@
-# React + TypeScript + Vite
+# EventFlow
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> A modern, configurable event management and participant engagement platform.
 
-Currently, two official plugins are available:
+EventFlow is a full-stack web application designed to simplify event management, participant onboarding, communication, document collection, and event coordination.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+The platform is designed to support different types of events — from conferences and workshops to weddings and corporate events — without requiring a completely different application for each event.
 
-## React Compiler
+## ✨ Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 👨‍💼 Admin Dashboard
+- Manage events and participants
+- View participant information and registration status
+- Send invitations
+- Track invitation and registration progress
+- Request and manage participant documents
+- Download uploaded documents
+- Communicate privately with individual participants
+- Send announcements to multiple participants
+- Monitor event activity
 
-## Expanding the ESLint configuration
+### 👤 Participant Dashboard
+- View personalized event information
+- Complete registration
+- Upload required documents
+- Track registration/document status
+- Receive event announcements
+- Communicate directly with the admin
+- Manage personal profile
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### 💬 Communication
+- One-to-one admin ↔ participant messaging
+- Real-time communication
+- Event-wide announcements
+- Notifications for important updates
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### 📁 Document Management
+- Admin can request documents
+- Participants can securely upload files
+- Admin can review and download submitted documents
+- Document status tracking
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### 📩 Invitation System
+- Add or import participants
+- Generate unique invitation links
+- Send invitations through email
+- Track invitation status:
+  - Invited
+  - Opened
+  - Accepted
+  - Registered
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### ⚙️ Configurable Events
 
-```
+EventFlow is designed to be event-independent.
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+Possible event types include:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+- Conferences
+- Weddings
+- Workshops
+- Seminars
+- Corporate Events
+- Networking Events
+- Custom Events
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+Different modules can be enabled depending on the event.
 
-```
+## 🏗️ Architecture
+
+```text
+                    EventFlow
+                       │
+          ┌────────────┴────────────┐
+          │                         │
+     Admin Portal            Participant Portal
+          │                         │
+          └────────────┬────────────┘
+                       │
+                 REST API / WebSocket
+                       │
+                  Node.js Backend
+                       │
+          ┌────────────┴────────────┐
+          │                         │
+       MongoDB                  File Storage
+                                (S3/Cloudinary)
