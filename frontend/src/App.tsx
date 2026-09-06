@@ -2,6 +2,9 @@ import { useState } from 'react';
 
 import Landing from './pages/Landing';
 import Login from './pages/Login';
+import AcceptInvitation from './pages/AcceptInvitation.tsx';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 
 import AdminLayout from './components/AdminLayout.tsx';
 import AdminDashboard from './pages/admin/Dashboard.tsx';
@@ -18,6 +21,8 @@ import ParticipantDashboard from './pages/participant/Dashboard';
 type View =
   | 'landing'
   | 'login'
+  | 'forgot-password'
+  | 'reset-password'
   | 'admin-dashboard'
   | 'participants'
   | 'participant-profile'
@@ -31,64 +36,203 @@ type View =
 export default function App() {
   const [view, setView] = useState<View>('landing');
 
-  const [selectedParticipantId, setSelectedParticipantId] =
-    useState<string | null>(null);
+  const [
+    selectedParticipantId,
+    setSelectedParticipantId,
+  ] = useState<string | null>(null);
 
-  // Go to login page
+  // ---------------------------------------------------------
+  // READ URL PARAMETERS
+  // ---------------------------------------------------------
+
+  const searchParams = new URLSearchParams(
+    window.location.search
+  );
+
+  const invitationToken = searchParams.get('token');
+
+  const resetToken = searchParams.get('resetToken');
+
+  // ---------------------------------------------------------
+  // CHECK FOR INVITATION TOKEN
+  // ---------------------------------------------------------
+
+  if (invitationToken) {
+    return (
+      <AcceptInvitation
+        token={invitationToken}
+        onAccepted={() => {
+          window.history.replaceState({}, '', '/');
+          setView('login');
+        }}
+      />
+    );
+  }
+
+  // ---------------------------------------------------------
+  // CHECK FOR PASSWORD RESET TOKEN
+  // ---------------------------------------------------------
+
+  if (resetToken) {
+    return (
+      <ResetPassword
+        token={resetToken}
+        onSuccess={() => {
+          window.history.replaceState({}, '', '/');
+          setView('login');
+        }}
+      />
+    );
+  }
+
+  // ---------------------------------------------------------
+  // GO TO LOGIN
+  // ---------------------------------------------------------
+
   const goToLogin = () => {
     setView('login');
   };
 
-  // Handle successful login
-  const handleLogin = (r: 'admin' | 'participant') => {
-    if (r === 'admin') {
+  // ---------------------------------------------------------
+  // HANDLE SUCCESSFUL LOGIN
+  // ---------------------------------------------------------
+
+  const handleLogin = (
+    role: 'admin' | 'participant'
+  ) => {
+    if (role === 'admin') {
       setView('admin-dashboard');
     } else {
       setView('participant-dashboard');
     }
   };
 
-  // Logout
+  // ---------------------------------------------------------
+  // LOGOUT
+  // ---------------------------------------------------------
+
   const handleLogout = () => {
     setSelectedParticipantId(null);
+
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+
     setView('landing');
   };
 
-  // Admin navigation
-  const adminNavigate = (page: string, id?: string) => {
-    if (page === 'participant-profile' && id) {
+  // ---------------------------------------------------------
+  // ADMIN NAVIGATION
+  // ---------------------------------------------------------
+
+  const adminNavigate = (
+    page: string,
+    id?: string
+  ) => {
+
+    // Dashboard
+    // AdminLayout uses "dashboard"
+    // App uses "admin-dashboard"
+    if (page === 'dashboard') {
+      setView('admin-dashboard');
+      return;
+    }
+
+    // Participant profile
+    if (
+      page === 'participant-profile' &&
+      id
+    ) {
       setSelectedParticipantId(id);
       setView('participant-profile');
-    } else {
-      setView(page as View);
+      return;
+    }
+
+    // Other admin pages
+    if (
+      page === 'participants' ||
+      page === 'invitations' ||
+      page === 'announcements' ||
+      page === 'documents' ||
+      page === 'chat' ||
+      page === 'event-builder'
+    ) {
+      setView(page);
+      return;
     }
   };
 
-  // Landing page
-  if (view === 'landing') {
-    return <Landing onLogin={goToLogin} />;
-  }
+  // ---------------------------------------------------------
+  // LANDING PAGE
+  // ---------------------------------------------------------
 
-  // Login page
-  if (view === 'login') {
+  if (view === 'landing') {
     return (
-      <Login
-        onLogin={handleLogin}
-        onBack={() => setView('landing')}
+      <Landing
+        onLogin={goToLogin}
       />
     );
   }
 
-  // Participant dashboard
-  if (view === 'participant-dashboard') {
-    return <ParticipantDashboard onLogout={handleLogout} />;
+  // ---------------------------------------------------------
+  // LOGIN PAGE
+  // ---------------------------------------------------------
+
+  if (view === 'login') {
+    return (
+      <Login
+        onLogin={handleLogin}
+        onBack={() =>
+          setView('landing')
+        }
+        onForgotPassword={() =>
+          setView('forgot-password')
+        }
+      />
+    );
   }
 
-  // Admin page ID
-  const adminPageId =
-    view === 'admin-dashboard' ? 'dashboard' : view;
+  // ---------------------------------------------------------
+  // FORGOT PASSWORD PAGE
+  // ---------------------------------------------------------
 
-  // Admin portal
+  if (view === 'forgot-password') {
+    return (
+      <ForgotPassword
+        onBack={() =>
+          setView('login')
+        }
+        onResetLink={(link) => {
+          window.location.href = link;
+        }}
+      />
+    );
+  }
+
+  // ---------------------------------------------------------
+  // PARTICIPANT DASHBOARD
+  // ---------------------------------------------------------
+
+  if (view === 'participant-dashboard') {
+    return (
+      <ParticipantDashboard
+        onLogout={handleLogout}
+      />
+    );
+  }
+
+  // ---------------------------------------------------------
+  // ADMIN PAGE ID
+  // ---------------------------------------------------------
+
+  const adminPageId =
+    view === 'admin-dashboard'
+      ? 'dashboard'
+      : view;
+
+  // ---------------------------------------------------------
+  // ADMIN PORTAL
+  // ---------------------------------------------------------
+
   return (
     <AdminLayout
       currentPage={adminPageId}
@@ -96,30 +240,81 @@ export default function App() {
       onLogout={handleLogout}
       eventName="Tech Summit 2026"
     >
+
+      {/* ------------------------------------------------- */}
+      {/* DASHBOARD */}
+      {/* ------------------------------------------------- */}
+
       {view === 'admin-dashboard' && (
-        <AdminDashboard onNavigate={adminNavigate} />
-      )}
-
-      {view === 'participants' && (
-        <Participants onNavigate={adminNavigate} />
-      )}
-
-      {view === 'participant-profile' && selectedParticipantId && (
-        <ParticipantProfile
-          participantId={selectedParticipantId}
-          onBack={() => setView('participants')}
+        <AdminDashboard
+          onNavigate={adminNavigate}
         />
       )}
 
-      {view === 'invitations' && <Invitations />}
+      {/* ------------------------------------------------- */}
+      {/* PARTICIPANTS */}
+      {/* ------------------------------------------------- */}
 
-      {view === 'announcements' && <Announcements />}
+      {view === 'participants' && (
+        <Participants />
+      )}
 
-      {view === 'documents' && <Documents />}
+      {/* ------------------------------------------------- */}
+      {/* PARTICIPANT PROFILE */}
+      {/* ------------------------------------------------- */}
 
-      {view === 'chat' && <Chat />}
+      {view === 'participant-profile' &&
+        selectedParticipantId && (
+          <ParticipantProfile
+            participantId={
+              selectedParticipantId
+            }
+            onBack={() =>
+              setView('participants')
+            }
+          />
+        )}
 
-      {view === 'event-builder' && <EventBuilder />}
+      {/* ------------------------------------------------- */}
+      {/* INVITATIONS */}
+      {/* ------------------------------------------------- */}
+
+      {view === 'invitations' && (
+        <Invitations />
+      )}
+
+      {/* ------------------------------------------------- */}
+      {/* ANNOUNCEMENTS */}
+      {/* ------------------------------------------------- */}
+
+      {view === 'announcements' && (
+        <Announcements />
+      )}
+
+      {/* ------------------------------------------------- */}
+      {/* DOCUMENTS */}
+      {/* ------------------------------------------------- */}
+
+      {view === 'documents' && (
+        <Documents />
+      )}
+
+      {/* ------------------------------------------------- */}
+      {/* CHAT */}
+      {/* ------------------------------------------------- */}
+
+      {view === 'chat' && (
+        <Chat />
+      )}
+
+      {/* ------------------------------------------------- */}
+      {/* EVENT BUILDER */}
+      {/* ------------------------------------------------- */}
+
+      {view === 'event-builder' && (
+        <EventBuilder />
+      )}
+
     </AdminLayout>
   );
-} 
+}
