@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 
 interface EventData {
@@ -10,6 +11,7 @@ interface Invitation {
   _id: string;
   name: string;
   email: string;
+  mobile?: string;
   event: EventData | string;
   status: 'pending' | 'accepted' | 'expired';
   expiresAt: string;
@@ -59,7 +61,7 @@ export default function Invitations() {
     useState(false);
 
   // =========================================================
-  // NEW: GENERATED INVITATION LINK
+  // GENERATED INVITATION LINK
   // =========================================================
 
   const [invitationLink, setInvitationLink] =
@@ -336,7 +338,7 @@ export default function Invitations() {
     setInvitationLink('');
 
     // -------------------------------------------------------
-    // VALIDATION
+    // NAME VALIDATION
     // -------------------------------------------------------
 
     if (!name.trim()) {
@@ -346,6 +348,10 @@ export default function Invitations() {
       return;
     }
 
+    // -------------------------------------------------------
+    // EMAIL VALIDATION
+    // -------------------------------------------------------
+
     if (!email.trim()) {
       setError(
         'Please enter participant email.'
@@ -353,12 +359,20 @@ export default function Invitations() {
       return;
     }
 
+    // -------------------------------------------------------
+    // EVENT VALIDATION
+    // -------------------------------------------------------
+
     if (!selectedEventId) {
       setError(
         'Please select an event.'
       );
       return;
     }
+
+    // -------------------------------------------------------
+    // AUTHENTICATION
+    // -------------------------------------------------------
 
     const token = getToken();
 
@@ -389,12 +403,19 @@ export default function Invitations() {
               `Bearer ${token}`,
           },
 
-          body: JSON.stringify({
-            name: name.trim(),
+          // -------------------------------------------------
+          // ONLY NAME, EMAIL AND EVENT
+          // MOBILE IS NOT SENT HERE
+          // -------------------------------------------------
 
-            email: email
-              .trim()
-              .toLowerCase(),
+          body: JSON.stringify({
+            name:
+              name.trim(),
+
+            email:
+              email
+                .trim()
+                .toLowerCase(),
 
             eventId:
               selectedEventId,
@@ -908,6 +929,14 @@ export default function Invitations() {
                                   {invitation.email}
                                 </p>
 
+                                {/* Mobile appears here only
+                                    after participant provides it */}
+                                {invitation.mobile && (
+                                  <p className="text-xs text-[#9090A8] mt-0.5">
+                                    {invitation.mobile}
+                                  </p>
+                                )}
+
                               </div>
 
                             </div>
@@ -1135,7 +1164,7 @@ export default function Invitations() {
 
             <p className="text-sm text-[#9090A8] mb-5">
               Upload a CSV file with columns:
-              Name, Email, Company, Role
+              Name, Email, Mobile, Company, Role
             </p>
 
             <div

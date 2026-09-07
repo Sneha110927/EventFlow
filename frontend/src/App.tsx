@@ -1,7 +1,9 @@
+
 import { useState } from 'react';
 
 import Landing from './pages/Landing';
 import Login from './pages/Login';
+import ParticipantLogin from './components/ParticipantLogin.tsx';
 import AcceptInvitation from './pages/AcceptInvitation.tsx';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
@@ -21,6 +23,7 @@ import ParticipantDashboard from './pages/participant/Dashboard';
 type View =
   | 'landing'
   | 'login'
+  | 'participant-login'
   | 'forgot-password'
   | 'reset-password'
   | 'admin-dashboard'
@@ -63,7 +66,7 @@ export default function App() {
         token={invitationToken}
         onAccepted={() => {
           window.history.replaceState({}, '', '/');
-          setView('login');
+          setView('participant-dashboard');
         }}
       />
     );
@@ -89,8 +92,14 @@ export default function App() {
   // GO TO LOGIN
   // ---------------------------------------------------------
 
-  const goToLogin = () => {
-    setView('login');
+  const goToLogin = (
+    role: 'admin' | 'participant'
+  ) => {
+    if (role === 'admin') {
+      setView('login');
+    } else {
+      setView('participant-login');
+    }
   };
 
   // ---------------------------------------------------------
@@ -130,8 +139,6 @@ export default function App() {
   ) => {
 
     // Dashboard
-    // AdminLayout uses "dashboard"
-    // App uses "admin-dashboard"
     if (page === 'dashboard') {
       setView('admin-dashboard');
       return;
@@ -174,19 +181,30 @@ export default function App() {
   }
 
   // ---------------------------------------------------------
-  // LOGIN PAGE
+  // ADMIN LOGIN PAGE
   // ---------------------------------------------------------
 
   if (view === 'login') {
     return (
       <Login
         onLogin={handleLogin}
-        onBack={() =>
-          setView('landing')
-        }
+        onBack={() => setView('landing')}
         onForgotPassword={() =>
           setView('forgot-password')
         }
+      />
+    );
+  }
+
+  // ---------------------------------------------------------
+  // PARTICIPANT LOGIN PAGE
+  // ---------------------------------------------------------
+
+  if (view === 'participant-login') {
+    return (
+      <ParticipantLogin
+        onLogin={handleLogin}
+        onBack={() => setView('landing')}
       />
     );
   }
@@ -198,9 +216,7 @@ export default function App() {
   if (view === 'forgot-password') {
     return (
       <ForgotPassword
-        onBack={() =>
-          setView('login')
-        }
+        onBack={() => setView('login')}
         onResetLink={(link) => {
           window.location.href = link;
         }}
@@ -266,9 +282,7 @@ export default function App() {
       {view === 'participant-profile' &&
         selectedParticipantId && (
           <ParticipantProfile
-            participantId={
-              selectedParticipantId
-            }
+            participantId={selectedParticipantId}
             onBack={() =>
               setView('participants')
             }

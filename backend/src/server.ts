@@ -6,7 +6,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 
 import { Server as SocketIOServer } from "socket.io";
-
+import announcementRoutes from "./routes/announcementRoutes";
 import connectDatabase from "./config/database";
 
 import authRoutes from "./routes/authRoutes";
@@ -64,7 +64,7 @@ app.use(express.json());
 // =========================================================
 // ROUTES
 // =========================================================
-
+app.use("/api/announcements", announcementRoutes);
 app.use(
   "/api/auth",
   authRoutes

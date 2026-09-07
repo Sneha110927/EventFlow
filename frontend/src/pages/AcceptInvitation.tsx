@@ -23,12 +23,19 @@ interface InvitationResponse {
   message?: string;
 }
 
-interface AcceptResponse {
+interface OTPResponse {
   message?: string;
+  expiresIn?: number;
+}
+
+interface VerifyOTPResponse {
+  message?: string;
+  token?: string;
   user?: {
     id: string;
     name: string;
     email: string;
+    mobile?: string;
     role: string;
   };
 }
@@ -46,11 +53,14 @@ export default function AcceptInvitation({
     useState<Invitation | null>(null);
 
   const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
+  const [sendingOTP, setSendingOTP] = useState(false);
+  const [verifyingOTP, setVerifyingOTP] = useState(false);
 
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] =
-    useState("");
+  const [name, setName] = useState("");
+  const [mobile, setMobile] = useState("");
+  const [otp, setOtp] = useState("");
+
+  const [otpSent, setOtpSent] = useState(false);
 
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -86,6 +96,9 @@ export default function AcceptInvitation({
         }
 
         setInvitation(data.invitation);
+
+        // Pre-fill the invited name
+        setName(data.invitation.name);
       } catch (err: unknown) {
         console.error(
           "Invitation loading error:",
@@ -106,10 +119,10 @@ export default function AcceptInvitation({
   }, [token]);
 
   // ---------------------------------------------------------
-  // ACCEPT INVITATION
+  // SEND OTP
   // ---------------------------------------------------------
 
-  const handleSubmit = async (
+  const handleSendOTP = async (
     e: React.FormEvent<HTMLFormElement>
   ) => {
     e.preventDefault();
@@ -117,74 +130,167 @@ export default function AcceptInvitation({
     setError("");
     setMessage("");
 
-    if (!password || !confirmPassword) {
+    // if (!name.trim()) {
+    //   setError("Please enter your name.");
+    //   return;
+    // }
+
+    if (!mobile.trim()) {
       setError(
-        "Please enter and confirm your password."
+        "Please enter your mobile number."
       );
       return;
     }
 
-    if (password.length < 6) {
-      setError(
-        "Password must be at least 6 characters."
-      );
-      return;
-    }
+    const cleanMobile = mobile
+      .replace(/\D/g, "");
 
-    if (password !== confirmPassword) {
-      setError("Passwords do not match.");
+    if (cleanMobile.length !== 10) {
+      setError(
+        "Please enter a valid 10-digit mobile number."
+      );
       return;
     }
 
     try {
-      setCreating(true);
+      setSendingOTP(true);
 
       const response = await fetch(
-        `http://localhost:5000/api/invitations/accept/${token}`,
+        `http://localhost:5000/api/invitations/${token}/send-otp`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            password,
+            name: name.trim(),
+            mobile: cleanMobile,
           }),
         }
       );
 
-      const data: AcceptResponse =
+      const data: OTPResponse =
         await response.json();
 
       if (!response.ok) {
         throw new Error(
           data.message ||
-            "Failed to create participant account"
+            "Failed to send OTP"
         );
       }
 
+      setOtpSent(true);
+
       setMessage(
-        "Account created successfully! Redirecting to login..."
+        "OTP has been sent to your mobile number."
       );
-
-      setPassword("");
-      setConfirmPassword("");
-
-      setTimeout(() => {
-        onAccepted();
-      }, 1500);
     } catch (err: unknown) {
       console.error(
-        "Accept invitation error:",
+        "Send OTP error:",
         err
       );
 
       setError(
         err instanceof Error
           ? err.message
-          : "Failed to create account"
+          : "Failed to send OTP"
       );
     } finally {
-      setCreating(false);
+      setSendingOTP(false);
+    }
+  };
+
+  // ---------------------------------------------------------
+  // VERIFY OTP
+  // ---------------------------------------------------------
+
+  const handleVerifyOTP = async (
+    e: React.FormEvent<HTMLFormElement>
+  ) => {
+    e.preventDefault();
+
+    setError("");
+    setMessage("");
+
+    if (!otp.trim()) {
+      setError("Please enter the OTP.");
+      return;
+    }
+
+    if (!/^\d{6}$/.test(otp.trim())) {
+      setError(
+        "OTP must be a 6-digit number."
+      );
+      return;
+    }
+
+    try {
+      setVerifyingOTP(true);
+
+      const response = await fetch(
+        `http://localhost:5000/api/invitations/${token}/verify-otp`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            otp: otp.trim(),
+          }),
+        }
+      );
+
+      const data: VerifyOTPResponse =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Invalid OTP"
+        );
+      }
+
+      // -----------------------------------------------------
+      // SAVE LOGIN INFORMATION
+      // -----------------------------------------------------
+
+      if (data.token && data.user) {
+        localStorage.setItem(
+          "token",
+          data.token
+        );
+
+        localStorage.setItem(
+          "user",
+          JSON.stringify(data.user)
+        );
+      }
+
+      setMessage(
+        "OTP verified successfully! Redirecting..."
+      );
+
+      // -----------------------------------------------------
+      // REDIRECT TO PARTICIPANT DASHBOARD
+      // -----------------------------------------------------
+
+      setTimeout(() => {
+        onAccepted();
+      }, 1000);
+
+    } catch (err: unknown) {
+      console.error(
+        "Verify OTP error:",
+        err
+      );
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to verify OTP"
+      );
+    } finally {
+      setVerifyingOTP(false);
     }
   };
 
@@ -258,6 +364,8 @@ export default function AcceptInvitation({
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-7">
 
+          {/* Title */}
+
           <h2 className="text-xl font-semibold text-[#1A1A2E]">
             You're Invited!
           </h2>
@@ -299,7 +407,7 @@ export default function AcceptInvitation({
           <div className="mt-5">
 
             <p className="text-xs text-gray-400 uppercase font-semibold">
-              Participant
+              Invited Participant
             </p>
 
             <p className="font-semibold text-[#1A1A2E] mt-1">
@@ -312,80 +420,183 @@ export default function AcceptInvitation({
 
           </div>
 
-          {/* Password Form */}
+          {/* ================================================= */}
+          {/* STEP 1 - NAME + MOBILE */}
+          {/* ================================================= */}
 
-          <form
-            onSubmit={handleSubmit}
-            className="mt-6 space-y-4"
-          >
-
-            <div>
-
-              <label className="block text-sm font-medium text-[#1A1A2E] mb-1.5">
-                Create Password
-              </label>
-
-              <input
-                type="password"
-                value={password}
-                onChange={(e) =>
-                  setPassword(e.target.value)
-                }
-                placeholder="Minimum 6 characters"
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#6276E8]"
-              />
-
-            </div>
-
-            <div>
-
-              <label className="block text-sm font-medium text-[#1A1A2E] mb-1.5">
-                Confirm Password
-              </label>
-
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) =>
-                  setConfirmPassword(
-                    e.target.value
-                  )
-                }
-                placeholder="Enter password again"
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#6276E8]"
-              />
-
-            </div>
-
-            {/* Error */}
-
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-600 rounded-xl p-3 text-sm">
-                {error}
-              </div>
-            )}
-
-            {/* Success */}
-
-            {message && (
-              <div className="bg-green-50 border border-green-200 text-green-700 rounded-xl p-3 text-sm">
-                {message}
-              </div>
-            )}
-
-            {/* Button */}
-
-            <button
-              type="submit"
-              disabled={creating}
-              className="w-full gradient-primary text-white font-semibold py-3 rounded-xl disabled:opacity-50"
+          {!otpSent && (
+            <form
+              onSubmit={handleSendOTP}
+              className="mt-6 space-y-4"
             >
-              {creating
-                ? "Creating Account..."
-                : "Accept Invitation"}
-            </button>
 
-          </form>
+              {/* Name */}
+
+              <div>
+
+                {/* <label className="block text-sm font-medium text-[#1A1A2E] mb-1.5">
+                  Your Name
+                </label> */}
+
+                {/* <input
+                  type="text"
+                  value={name}
+                  onChange={(e) =>
+                    setName(e.target.value)
+                  }
+                  placeholder="Enter your name"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#6276E8]"
+                /> */}
+
+              </div>
+
+              {/* Mobile */}
+
+              <div>
+
+                <label className="block text-sm font-medium text-[#1A1A2E] mb-1.5">
+                  Mobile Number
+                </label>
+
+                <input
+                  type="tel"
+                  value={mobile}
+                  onChange={(e) =>
+                    setMobile(e.target.value)
+                  }
+                  placeholder="Enter 10-digit mobile number"
+                  maxLength={10}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#6276E8]"
+                />
+
+                <p className="text-xs text-gray-400 mt-1.5">
+                  We'll send a 6-digit OTP to this
+                  number.
+                </p>
+
+              </div>
+
+              {/* Error */}
+
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-600 rounded-xl p-3 text-sm">
+                  {error}
+                </div>
+              )}
+
+              {/* Success */}
+
+              {message && (
+                <div className="bg-green-50 border border-green-200 text-green-700 rounded-xl p-3 text-sm">
+                  {message}
+                </div>
+              )}
+
+              {/* Send OTP */}
+
+              <button
+                type="submit"
+                disabled={sendingOTP}
+                className="w-full gradient-primary text-white font-semibold py-3 rounded-xl disabled:opacity-50"
+              >
+                {sendingOTP
+                  ? "Sending OTP..."
+                  : "Send OTP"}
+              </button>
+
+            </form>
+          )}
+
+          {/* ================================================= */}
+          {/* STEP 2 - OTP */}
+          {/* ================================================= */}
+
+          {otpSent && (
+            <form
+              onSubmit={handleVerifyOTP}
+              className="mt-6 space-y-4"
+            >
+
+              <div>
+
+                <label className="block text-sm font-medium text-[#1A1A2E] mb-1.5">
+                  Enter OTP
+                </label>
+
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={otp}
+                  onChange={(e) =>
+                    setOtp(
+                      e.target.value
+                        .replace(/\D/g, "")
+                        .slice(0, 6)
+                    )
+                  }
+                  placeholder="Enter 6-digit OTP"
+                  maxLength={6}
+                  autoFocus
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-center text-xl tracking-[0.4em] outline-none focus:border-[#6276E8]"
+                />
+
+                <p className="text-xs text-gray-400 mt-2 text-center">
+                  Enter the 6-digit OTP sent to{" "}
+                  <span className="font-medium">
+                    {mobile}
+                  </span>
+                </p>
+
+              </div>
+
+              {/* Error */}
+
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-600 rounded-xl p-3 text-sm">
+                  {error}
+                </div>
+              )}
+
+              {/* Success */}
+
+              {message && (
+                <div className="bg-green-50 border border-green-200 text-green-700 rounded-xl p-3 text-sm">
+                  {message}
+                </div>
+              )}
+
+              {/* Verify */}
+
+              <button
+                type="submit"
+                disabled={
+                  verifyingOTP ||
+                  otp.length !== 6
+                }
+                className="w-full gradient-primary text-white font-semibold py-3 rounded-xl disabled:opacity-50"
+              >
+                {verifyingOTP
+                  ? "Verifying..."
+                  : "Verify OTP & Continue"}
+              </button>
+
+              {/* Back */}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setOtpSent(false);
+                  setOtp("");
+                  setError("");
+                  setMessage("");
+                }}
+                className="w-full text-sm text-gray-500 hover:text-[#6276E8]"
+              >
+                ← Change mobile number
+              </button>
+
+            </form>
+          )}
 
           {/* Expiry */}
 

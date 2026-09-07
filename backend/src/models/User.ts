@@ -3,12 +3,11 @@ import mongoose, { Document, Schema } from "mongoose";
 export interface IUser extends Document {
   name: string;
   email: string;
-  password: string;
+  mobile?: string;
+  password?: string;
   role: "admin" | "participant";
-
   resetPasswordToken?: string;
   resetPasswordExpires?: Date;
-
   createdAt: Date;
   updatedAt: Date;
 }
@@ -29,9 +28,17 @@ const userSchema = new Schema<IUser>(
       trim: true,
     },
 
+    mobile: {
+      type: String,
+      trim: true,
+      sparse: true,
+    },
+
     password: {
       type: String,
-      required: true,
+      required: function () {
+        return this.role === "admin";
+      },
     },
 
     role: {
@@ -40,7 +47,6 @@ const userSchema = new Schema<IUser>(
       default: "participant",
     },
 
-    // Password reset fields
     resetPasswordToken: {
       type: String,
     },
@@ -54,9 +60,6 @@ const userSchema = new Schema<IUser>(
   }
 );
 
-const User = mongoose.model<IUser>(
-  "User",
-  userSchema
-);
+const User = mongoose.model<IUser>("User", userSchema);
 
 export default User;

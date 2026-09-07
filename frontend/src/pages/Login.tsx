@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 
 interface LoginProps {
@@ -11,7 +12,6 @@ export default function Login({
   onBack,
   onForgotPassword,
 }: LoginProps) {
-  const [tab, setTab] = useState<'admin' | 'participant'>('admin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -39,7 +39,7 @@ export default function Login({
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            email,
+            email: email.trim(),
             password,
           }),
         }
@@ -48,22 +48,30 @@ export default function Login({
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || 'Login failed');
-      }
-
-      if (data.user.role !== tab) {
         throw new Error(
-          `This account is registered as ${data.user.role}, not ${tab}.`
+          data.message || 'Login failed'
         );
       }
 
-      localStorage.setItem('token', data.token);
+      // This login page is only for admins.
+      if (data.user.role !== 'admin') {
+        throw new Error(
+          'Participants must login using the mobile number and OTP from their invitation.'
+        );
+      }
+
+      localStorage.setItem(
+        'token',
+        data.token
+      );
+
       localStorage.setItem(
         'user',
         JSON.stringify(data.user)
       );
 
-      onLogin(data.user.role);
+      onLogin('admin');
+
     } catch (error) {
       if (error instanceof Error) {
         setError(error.message);
@@ -107,34 +115,28 @@ export default function Login({
           </h1>
 
           <p className="text-sm text-[#9090A8] text-center mb-6">
-            Sign in to your EventFlow account to continue
+            Sign in to your EventFlow admin account
           </p>
 
-          {/* Admin / Participant Tabs */}
-          <div className="flex bg-[#F3F2EC] rounded-xl p-1 mb-6">
+          {/* Admin Login Badge */}
+          <div className="flex items-center justify-center mb-6">
+            <div className="inline-flex items-center gap-2 bg-[#EEF2FF] text-[#5B6FD4] px-4 py-2 rounded-xl text-sm font-medium">
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+              </svg>
 
-            {(['admin', 'participant'] as const).map(
-              (t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => {
-                    setTab(t);
-                    setError('');
-                  }}
-                  className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all capitalize ${
-                    tab === t
-                      ? 'bg-white text-[#5B6FD4] shadow-soft'
-                      : 'text-[#9090A8] hover:text-[#5A5A72]'
-                  }`}
-                >
-                  {t === 'admin'
-                    ? 'Admin'
-                    : 'Participant'}
-                </button>
-              )
-            )}
-
+              Admin Login
+            </div>
           </div>
 
           {/* Login Form */}
@@ -155,11 +157,7 @@ export default function Login({
                 onChange={(e) =>
                   setEmail(e.target.value)
                 }
-                placeholder={
-                  tab === 'admin'
-                    ? 'admin@eventflow.com'
-                    : 'your@email.com'
-                }
+                placeholder="admin@eventflow.com"
                 autoComplete="email"
                 className="w-full px-4 py-3 rounded-xl border border-[#E8E8F0] bg-[#FAFAF7] text-sm text-[#1A1A2E] placeholder:text-[#C0C0D0] focus:outline-none focus:border-[#5B6FD4] focus:ring-2 focus:ring-[#5B6FD4]/10 transition-all"
               />
@@ -167,7 +165,6 @@ export default function Login({
 
             {/* Password */}
             <div>
-
               <div className="flex items-center justify-between mb-1.5">
 
                 <label className="block text-sm font-medium text-[#1A1A2E]">
@@ -194,7 +191,6 @@ export default function Login({
                 autoComplete="current-password"
                 className="w-full px-4 py-3 rounded-xl border border-[#E8E8F0] bg-[#FAFAF7] text-sm text-[#1A1A2E] placeholder:text-[#C0C0D0] focus:outline-none focus:border-[#5B6FD4] focus:ring-2 focus:ring-[#5B6FD4]/10 transition-all"
               />
-
             </div>
 
             {/* Error */}
@@ -235,23 +231,20 @@ export default function Login({
                   </svg>
 
                   Signing in...
-
                 </span>
               ) : (
-                `Sign in as ${
-                  tab === 'admin'
-                    ? 'Admin'
-                    : 'Participant'
-                }`
+                'Sign in as Admin'
               )}
             </button>
 
           </form>
 
-          {/* Information */}
+          {/* Participant Information */}
           <div className="mt-6 pt-5 border-t border-[#E8E8F0]">
-            <p className="text-center text-xs text-[#9090A8]">
-              Sign in using your registered EventFlow account.
+            <p className="text-center text-xs text-[#9090A8] leading-relaxed">
+              Are you a participant? Use the invitation link
+              sent to your email. You will sign in using your
+              mobile number and a one-time password (OTP).
             </p>
           </div>
 

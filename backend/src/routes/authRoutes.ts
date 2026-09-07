@@ -5,32 +5,57 @@ import {
   login,
   forgotPassword,
   resetPassword,
+
+  // Participant OTP
+  sendParticipantOTP,
+  verifyParticipantOTP,
 } from "../controllers/authController";
+
 
 const router = Router();
 
-// Register
+
+// ============================================================
+// ADMIN / GENERAL AUTH
+// ============================================================
+
 router.post(
   "/register",
   register
 );
 
-// Login
 router.post(
   "/login",
   login
 );
 
-// Forgot password
 router.post(
   "/forgot-password",
   forgotPassword
 );
 
-// Reset password
 router.post(
   "/reset-password/:token",
   resetPassword
 );
+
+
+// ============================================================
+// PARTICIPANT PORTAL OTP
+// ============================================================
+
+// Send OTP
+router.post(
+  "/participant/send-otp",
+  sendParticipantOTP
+);
+
+
+// Verify OTP
+router.post(
+  "/participant/verify-otp",
+  verifyParticipantOTP
+);
+
 
 export default router;
