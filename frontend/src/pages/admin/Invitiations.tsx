@@ -1,10 +1,16 @@
-
-import { useEffect, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 interface EventData {
   _id: string;
   name: string;
   type?: string;
+  venue?: string;
+  location?: string;
 }
 
 interface Invitation {
@@ -19,9 +25,11 @@ interface Invitation {
   token?: string;
 }
 
+const API_BASE_URL = 'http://localhost:5000/api';
+
 export default function Invitations() {
   const [tab, setTab] = useState<
-    'overview' | 'create' | 'import'
+    'overview' | 'create'
   >('overview');
 
   const [notification, setNotification] =
@@ -36,23 +44,14 @@ export default function Invitations() {
   const [name, setName] =
     useState('');
 
-  const [company, setCompany] =
-    useState('');
-
-  const [message, setMessage] =
-    useState('');
-
-  const [copied, setCopied] =
-    useState('');
-
-  const [invitations, setInvitations] =
-    useState<Invitation[]>([]);
-
   const [events, setEvents] =
     useState<EventData[]>([]);
 
   const [selectedEventId, setSelectedEventId] =
     useState('');
+
+  const [invitations, setInvitations] =
+    useState<Invitation[]>([]);
 
   const [loading, setLoading] =
     useState(true);
@@ -60,15 +59,17 @@ export default function Invitations() {
   const [sending, setSending] =
     useState(false);
 
-  // =========================================================
-  // GENERATED INVITATION LINK
-  // =========================================================
+  const [deletingId, setDeletingId] =
+    useState<string | null>(null);
 
   const [invitationLink, setInvitationLink] =
     useState('');
 
+  const [copied, setCopied] =
+    useState(false);
+
   // =========================================================
-  // GET JWT TOKEN
+  // GET TOKEN
   // =========================================================
 
   const getToken = () => {
@@ -76,172 +77,281 @@ export default function Invitations() {
   };
 
   // =========================================================
-  // NOTIFICATION
+  // SHOW NOTIFICATION
   // =========================================================
 
-  const show = (msg: string) => {
+  const show = useCallback((msg: string) => {
     setNotification(msg);
 
-    setTimeout(() => {
+    window.setTimeout(() => {
       setNotification('');
     }, 3000);
-  };
+  }, []);
 
   // =========================================================
   // FETCH EVENTS
   // =========================================================
 
-  const fetchEvents = async () => {
-    try {
-      const token = getToken();
+  const fetchEvents = useCallback(
+    async () => {
+      try {
+        const token = getToken();
 
-      if (!token) {
-        setError('Please login again.');
-        return;
-      }
-
-      const response = await fetch(
-        'http://localhost:5000/api/events',
-        {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+        if (!token) {
+          throw new Error(
+            'Authentication expired. Please login again.'
+          );
         }
-      );
 
-      const data = await response.json();
+        const response = await fetch(
+          `${API_BASE_URL}/events`,
+          {
+            method: 'GET',
+            headers: {
+              Authorization:
+                `Bearer ${token}`,
+            },
+          }
+        );
 
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            'Failed to fetch events'
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message ||
+              'Failed to fetch events'
+          );
+        }
+
+        const eventList: EventData[] =
+          Array.isArray(data)
+            ? data
+            : data.events || [];
+
+        setEvents(eventList);
+
+        // ---------------------------------------------------
+        // RESTORE SELECTED EVENT
+        // ---------------------------------------------------
+
+        const savedEventId =
+          localStorage.getItem(
+            'selectedEventId'
+          );
+
+        const savedEventExists =
+          eventList.some(
+            (event) =>
+              event._id === savedEventId
+          );
+
+        if (
+          savedEventId &&
+          savedEventExists
+        ) {
+          setSelectedEventId(
+            savedEventId
+          );
+        } else if (
+          eventList.length > 0
+        ) {
+          setSelectedEventId(
+            eventList[0]._id
+          );
+
+          localStorage.setItem(
+            'selectedEventId',
+            eventList[0]._id
+          );
+        }
+      } catch (err) {
+        console.error(
+          'Fetch events error:',
+          err
+        );
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Failed to fetch events'
         );
       }
-
-      const eventList =
-        Array.isArray(data)
-          ? data
-          : data.events || [];
-
-      setEvents(eventList);
-
-      // Automatically select first event
-      if (
-        eventList.length > 0 &&
-        !selectedEventId
-      ) {
-        setSelectedEventId(
-          eventList[0]._id
-        );
-      }
-    } catch (err) {
-      console.error(
-        'Fetch events error:',
-        err
-      );
-
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Failed to fetch events'
-      );
-    }
-  };
+    },
+    []
+  );
 
   // =========================================================
   // FETCH INVITATIONS
   // =========================================================
 
-  const fetchInvitations = async () => {
-    try {
-      const token = getToken();
+  const fetchInvitations = useCallback(
+    async () => {
+      try {
+        const token = getToken();
 
-      if (!token) {
-        setError('Please login again.');
-        return;
-      }
-
-      const response = await fetch(
-        'http://localhost:5000/api/invitations',
-        {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+        if (!token) {
+          throw new Error(
+            'Authentication expired. Please login again.'
+          );
         }
-      );
 
-      const data = await response.json();
+        const response = await fetch(
+          `${API_BASE_URL}/invitations`,
+          {
+            method: 'GET',
+            headers: {
+              Authorization:
+                `Bearer ${token}`,
+            },
+          }
+        );
 
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            'Failed to fetch invitations'
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message ||
+              'Failed to fetch invitations'
+          );
+        }
+
+        setInvitations(
+          data.invitations || []
+        );
+      } catch (err) {
+        console.error(
+          'Fetch invitations error:',
+          err
+        );
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Failed to fetch invitations'
         );
       }
-
-      setInvitations(
-        data.invitations || []
-      );
-    } catch (err) {
-      console.error(
-        'Fetch invitations error:',
-        err
-      );
-
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Failed to fetch invitations'
-      );
-    }
-  };
+    },
+    []
+  );
 
   // =========================================================
-  // LOAD DATA WHEN PAGE OPENS
+  // INITIAL LOAD
   // =========================================================
 
   useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      setError('');
+    const timer =
+      window.setTimeout(() => {
+        void Promise.all([
+          fetchEvents(),
+          fetchInvitations(),
+        ]).finally(() => {
+          setLoading(false);
+        });
+      }, 0);
 
-      await Promise.all([
-        fetchEvents(),
-        fetchInvitations(),
-      ]);
-
-      setLoading(false);
+    return () => {
+      window.clearTimeout(timer);
     };
-
-    loadData();
-  }, []);
+  }, [
+    fetchEvents,
+    fetchInvitations,
+  ]);
 
   // =========================================================
-  // INVITATION STATUS GROUPS
+  // SELECTED EVENT
+  // =========================================================
+
+  const selectedEvent =
+    useMemo(() => {
+      return events.find(
+        (event) =>
+          event._id === selectedEventId
+      );
+    }, [
+      events,
+      selectedEventId,
+    ]);
+
+  // =========================================================
+  // FILTER INVITATIONS FOR SELECTED EVENT
+  // =========================================================
+
+  const eventInvitations =
+    useMemo(() => {
+      if (!selectedEventId) {
+        return [];
+      }
+
+      return invitations.filter(
+        (invitation) => {
+          const invitationEventId =
+            typeof invitation.event ===
+            'string'
+              ? invitation.event
+              : invitation.event?._id;
+
+          return (
+            invitationEventId ===
+            selectedEventId
+          );
+        }
+      );
+    }, [
+      invitations,
+      selectedEventId,
+    ]);
+
+  // =========================================================
+  // EVENT CHANGE
+  // =========================================================
+
+  const handleEventChange = (
+    eventId: string
+  ) => {
+    setSelectedEventId(eventId);
+
+    localStorage.setItem(
+      'selectedEventId',
+      eventId
+    );
+
+    setInvitationLink('');
+    setError('');
+  };
+
+  // =========================================================
+  // INVITATION STATUS
   // =========================================================
 
   const pendingInvitations =
-    invitations.filter(
+    eventInvitations.filter(
       (invitation) =>
-        invitation.status === 'pending'
+        invitation.status ===
+        'pending'
     );
 
   const acceptedInvitations =
-    invitations.filter(
+    eventInvitations.filter(
       (invitation) =>
-        invitation.status === 'accepted'
+        invitation.status ===
+        'accepted'
     );
 
   const expiredInvitations =
-    invitations.filter(
+    eventInvitations.filter(
       (invitation) =>
-        invitation.status === 'expired'
+        invitation.status ===
+        'expired'
     );
 
   const total =
-    invitations.length;
+    eventInvitations.length;
+
+  // =========================================================
+  // PERCENTAGE
+  // =========================================================
 
   const getPercentage = (
     value: number
@@ -264,11 +374,12 @@ export default function Invitations() {
       label: 'Invited',
       value: total,
       color: '#5B6FD4',
-      pct: 100,
+      pct: total > 0 ? 100 : 0,
     },
     {
       label: 'Pending',
-      value: pendingInvitations.length,
+      value:
+        pendingInvitations.length,
       color: '#E8824A',
       pct: getPercentage(
         pendingInvitations.length
@@ -276,7 +387,8 @@ export default function Invitations() {
     },
     {
       label: 'Accepted',
-      value: acceptedInvitations.length,
+      value:
+        acceptedInvitations.length,
       color: '#3D9E8C',
       pct: getPercentage(
         acceptedInvitations.length
@@ -284,7 +396,8 @@ export default function Invitations() {
     },
     {
       label: 'Expired',
-      value: expiredInvitations.length,
+      value:
+        expiredInvitations.length,
       color: '#D95B5B',
       pct: getPercentage(
         expiredInvitations.length
@@ -293,7 +406,7 @@ export default function Invitations() {
   ];
 
   // =========================================================
-  // COPY LINK
+  // COPY INVITATION LINK
   // =========================================================
 
   const copyLink = async (
@@ -304,14 +417,14 @@ export default function Invitations() {
         link
       );
 
-      setCopied(link);
+      setCopied(true);
 
       show(
         'Invitation link copied to clipboard'
       );
 
-      setTimeout(() => {
-        setCopied('');
+      window.setTimeout(() => {
+        setCopied(false);
       }, 2000);
     } catch (err) {
       console.error(
@@ -338,7 +451,7 @@ export default function Invitations() {
     setInvitationLink('');
 
     // -------------------------------------------------------
-    // NAME VALIDATION
+    // NAME
     // -------------------------------------------------------
 
     if (!name.trim()) {
@@ -349,7 +462,7 @@ export default function Invitations() {
     }
 
     // -------------------------------------------------------
-    // EMAIL VALIDATION
+    // EMAIL
     // -------------------------------------------------------
 
     if (!email.trim()) {
@@ -360,7 +473,7 @@ export default function Invitations() {
     }
 
     // -------------------------------------------------------
-    // EVENT VALIDATION
+    // EVENT
     // -------------------------------------------------------
 
     if (!selectedEventId) {
@@ -371,7 +484,7 @@ export default function Invitations() {
     }
 
     // -------------------------------------------------------
-    // AUTHENTICATION
+    // TOKEN
     // -------------------------------------------------------
 
     const token = getToken();
@@ -383,45 +496,37 @@ export default function Invitations() {
       return;
     }
 
-    // -------------------------------------------------------
-    // CREATE INVITATION
-    // -------------------------------------------------------
-
     try {
       setSending(true);
 
-      const response = await fetch(
-        'http://localhost:5000/api/invitations',
-        {
-          method: 'POST',
+      const response =
+        await fetch(
+          `${API_BASE_URL}/invitations`,
+          {
+            method: 'POST',
 
-          headers: {
-            'Content-Type':
-              'application/json',
+            headers: {
+              'Content-Type':
+                'application/json',
 
-            Authorization:
-              `Bearer ${token}`,
-          },
+              Authorization:
+                `Bearer ${token}`,
+            },
 
-          // -------------------------------------------------
-          // ONLY NAME, EMAIL AND EVENT
-          // MOBILE IS NOT SENT HERE
-          // -------------------------------------------------
+            body: JSON.stringify({
+              name:
+                name.trim(),
 
-          body: JSON.stringify({
-            name:
-              name.trim(),
+              email:
+                email
+                  .trim()
+                  .toLowerCase(),
 
-            email:
-              email
-                .trim()
-                .toLowerCase(),
-
-            eventId:
-              selectedEventId,
-          }),
-        }
-      );
+              eventId:
+                selectedEventId,
+            }),
+          }
+        );
 
       const data =
         await response.json();
@@ -434,7 +539,7 @@ export default function Invitations() {
       }
 
       // -----------------------------------------------------
-      // SAVE INVITATION
+      // ADD NEW INVITATION TO STATE
       // -----------------------------------------------------
 
       if (data.invitation) {
@@ -444,45 +549,39 @@ export default function Invitations() {
             ...previous,
           ]
         );
+
+        // ---------------------------------------------------
+        // GENERATE INVITATION LINK
+        // ---------------------------------------------------
+
+        if (
+          data.invitation.token
+        ) {
+          const link =
+            `http://localhost:5173/accept-invitation?token=${data.invitation.token}`;
+
+          setInvitationLink(link);
+        }
       } else {
         await fetchInvitations();
       }
 
       // -----------------------------------------------------
-      // GENERATE FRONTEND INVITATION LINK
-      // -----------------------------------------------------
-
-      if (
-        data.invitation?.token
-      ) {
-        const link =
-          `http://localhost:5173/accept-invitation?token=${data.invitation.token}`;
-
-        setInvitationLink(link);
-      }
-
-      // -----------------------------------------------------
-      // SUCCESS MESSAGE
-      // -----------------------------------------------------
-
-      show(
-        `Invitation created for ${email}`
-      );
-
-      // -----------------------------------------------------
       // RESET FORM
       // -----------------------------------------------------
 
-      setEmail('');
       setName('');
-      setCompany('');
-      setMessage('');
+      setEmail('');
 
       // -----------------------------------------------------
       // RETURN TO OVERVIEW
       // -----------------------------------------------------
 
       setTab('overview');
+
+      show(
+        `Invitation created for ${email.trim()}`
+      );
 
     } catch (err) {
       console.error(
@@ -495,13 +594,145 @@ export default function Invitations() {
           ? err.message
           : 'Failed to create invitation'
       );
+
     } finally {
       setSending(false);
     }
   };
 
   // =========================================================
-  // RESEND
+  // DELETE INVITATION / PARTICIPANT
+  // =========================================================
+  //
+  // This calls:
+  //
+  // DELETE /api/invitations/:invitationId
+  //
+  // Backend will:
+  //
+  // 1. Delete invitation
+  // 2. Remove participant from this event
+  // 3. Delete related OTP
+  //
+  // The actual User account is NOT deleted.
+  //
+  // =========================================================
+
+  const deleteInvitation = async (
+    invitation: Invitation
+  ) => {
+
+
+    // -------------------------------------------------------
+    // CLEAR OLD ERROR
+    // -------------------------------------------------------
+
+    setError('');
+
+    // -------------------------------------------------------
+    // GET TOKEN
+    // -------------------------------------------------------
+
+    const token = getToken();
+
+    if (!token) {
+      setError(
+        'Authentication expired. Please login again.'
+      );
+      return;
+    }
+
+    try {
+
+      // -----------------------------------------------------
+      // SHOW LOADING STATE FOR THIS ROW
+      // -----------------------------------------------------
+
+      setDeletingId(
+        invitation._id
+      );
+
+      // -----------------------------------------------------
+      // DELETE REQUEST
+      // -----------------------------------------------------
+
+      const response =
+        await fetch(
+          `${API_BASE_URL}/invitations/${invitation._id}`,
+          {
+            method: 'DELETE',
+
+            headers: {
+              Authorization:
+                `Bearer ${token}`,
+            },
+          }
+        );
+
+      // -----------------------------------------------------
+      // READ RESPONSE
+      // -----------------------------------------------------
+
+      const data =
+        await response.json();
+
+      // -----------------------------------------------------
+      // CHECK RESPONSE
+      // -----------------------------------------------------
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            'Failed to delete participant'
+        );
+      }
+
+      // -----------------------------------------------------
+      // REMOVE FROM FRONTEND STATE
+      // -----------------------------------------------------
+
+      setInvitations(
+        (previous) =>
+          previous.filter(
+            (item) =>
+              item._id !==
+              invitation._id
+          )
+      );
+
+      // -----------------------------------------------------
+      // SHOW SUCCESS
+      // -----------------------------------------------------
+
+      show(
+        `${invitation.name} removed successfully`
+      );
+
+    } catch (err) {
+
+      console.error(
+        'Delete participant error:',
+        err
+      );
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to delete participant'
+      );
+
+    } finally {
+
+      // -----------------------------------------------------
+      // REMOVE LOADING STATE
+      // -----------------------------------------------------
+
+      setDeletingId(null);
+    }
+  };
+
+  // =========================================================
+  // RESEND INVITATION
   // =========================================================
 
   const resendInvitation = async (
@@ -513,39 +744,73 @@ export default function Invitations() {
   };
 
   // =========================================================
-  // PUBLIC REGISTRATION LINK
-  // =========================================================
-
-  const selectedEvent =
-    events.find(
-      (event) =>
-        event._id ===
-        selectedEventId
-    );
-
-  const publicRegistrationLink =
-    selectedEvent
-      ? `http://localhost:5173/register?event=${selectedEvent._id}`
-      : 'No event selected';
-
-  // =========================================================
   // LOADING
   // =========================================================
 
   if (loading) {
     return (
       <div className="p-6 max-w-6xl mx-auto">
+
         <div className="bg-white rounded-2xl border border-[#E8E8F0] p-10 text-center">
+
+          <div className="w-8 h-8 border-4 border-[#EEF2FF] border-t-[#5B6FD4] rounded-full animate-spin mx-auto mb-3" />
+
           <p className="text-sm text-[#9090A8]">
             Loading invitations...
           </p>
+
         </div>
+
       </div>
     );
   }
 
   // =========================================================
-  // UI
+  // NO EVENTS
+  // =========================================================
+
+  if (events.length === 0) {
+    return (
+      <div className="p-6 max-w-6xl mx-auto">
+
+        <div className="mb-8">
+
+          <h2 className="font-display text-2xl text-[#1A1A2E]">
+            Invitations
+          </h2>
+
+          <p className="text-sm text-[#9090A8] mt-1">
+            Manage participant invitations
+          </p>
+
+        </div>
+
+        <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-12 text-center">
+
+          <div className="w-14 h-14 bg-[#EEF2FF] rounded-2xl flex items-center justify-center mx-auto mb-4">
+
+            <span className="text-2xl text-[#5B6FD4]">
+              ✉
+            </span>
+
+          </div>
+
+          <h3 className="font-semibold text-[#1A1A2E]">
+            No events available
+          </h3>
+
+          <p className="text-sm text-[#9090A8] mt-2">
+            Create an event before sending invitations.
+          </p>
+
+        </div>
+
+      </div>
+    );
+  }
+
+  // =========================================================
+  // MAIN PAGE
   // =========================================================
 
   return (
@@ -566,69 +831,19 @@ export default function Invitations() {
       ====================================================== */}
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm">
-          {error}
+        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm flex items-center justify-between gap-4">
+
+          <span>{error}</span>
 
           <button
+            type="button"
             onClick={() =>
               setError('')
             }
-            className="ml-3 font-semibold hover:underline"
+            className="font-semibold hover:underline shrink-0"
           >
             Close
           </button>
-        </div>
-      )}
-
-      {/* =====================================================
-          NEW INVITATION LINK
-      ====================================================== */}
-
-      {invitationLink && (
-        <div className="bg-[#E6F4F1] border border-[#B9E3D9] rounded-2xl p-5">
-
-          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-
-            <div className="flex-1 min-w-0">
-
-              <div className="flex items-center gap-2">
-
-                <span className="w-7 h-7 rounded-full bg-[#3D9E8C] text-white flex items-center justify-center text-sm font-bold">
-                  ✓
-                </span>
-
-                <h3 className="font-semibold text-[#1A1A2E]">
-                  Invitation created successfully
-                </h3>
-
-              </div>
-
-              <p className="text-sm text-[#5A5A72] mt-2">
-                Share this link with the participant
-                so they can accept the invitation.
-              </p>
-
-              <div className="mt-3 px-4 py-3 bg-white border border-[#D8E8E3] rounded-xl text-sm font-mono text-[#5A5A72] break-all">
-                {invitationLink}
-              </div>
-
-            </div>
-
-            <button
-              onClick={() =>
-                copyLink(
-                  invitationLink
-                )
-              }
-              className="shrink-0 gradient-primary text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity"
-            >
-              {copied ===
-              invitationLink
-                ? 'Copied!'
-                : 'Copy Link'}
-            </button>
-
-          </div>
 
         </div>
       )}
@@ -637,17 +852,15 @@ export default function Invitations() {
           HEADER
       ====================================================== */}
 
-      <div className="flex items-center justify-between">
+      <div>
 
-        <div>
-          <h2 className="font-display text-2xl text-[#1A1A2E]">
-            Invitations
-          </h2>
+        <h2 className="font-display text-2xl text-[#1A1A2E]">
+          Invitations
+        </h2>
 
-          <p className="text-sm text-[#9090A8] mt-0.5">
-            Manage and track participant invitations
-          </p>
-        </div>
+        <p className="text-sm text-[#9090A8] mt-1">
+          Manage participant invitations for your events
+        </p>
 
       </div>
 
@@ -655,34 +868,86 @@ export default function Invitations() {
           EVENT SELECTOR
       ====================================================== */}
 
-      {events.length > 0 && (
-        <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-5">
+      <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-5">
 
-          <label className="block text-sm font-medium text-[#1A1A2E] mb-2">
-            Current Event
-          </label>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+
+          <div>
+
+            <p className="text-xs font-semibold text-[#9090A8] uppercase tracking-wider">
+              Event
+            </p>
+
+            <p className="text-sm text-[#5A5A72] mt-1">
+              Select an event to manage its invitations.
+            </p>
+
+          </div>
 
           <select
             value={selectedEventId}
             onChange={(e) =>
-              setSelectedEventId(
+              handleEventChange(
                 e.target.value
               )
             }
-            className="w-full max-w-md px-4 py-2.5 rounded-xl border border-[#E8E8F0] bg-[#FAFAF7] text-sm focus:outline-none focus:border-[#5B6FD4]"
+            className="w-full md:w-[320px] px-4 py-3 rounded-xl border border-[#E8E8F0] bg-[#FAFAF7] text-sm text-[#1A1A2E] focus:outline-none focus:border-[#5B6FD4] focus:ring-2 focus:ring-[#5B6FD4]/10"
           >
-            {events.map((event) => (
-              <option
-                key={event._id}
-                value={event._id}
-              >
-                {event.name}
-              </option>
-            ))}
+
+            <option value="">
+              Select an event
+            </option>
+
+            {events.map(
+              (event) => (
+                <option
+                  key={event._id}
+                  value={event._id}
+                >
+                  {event.name}
+                </option>
+              )
+            )}
+
           </select>
 
         </div>
-      )}
+
+        {selectedEvent && (
+          <div className="mt-4 pt-4 border-t border-[#F0F0F8] flex flex-wrap gap-x-6 gap-y-2">
+
+            {selectedEvent.venue && (
+              <div>
+
+                <p className="text-xs text-[#9090A8]">
+                  Venue
+                </p>
+
+                <p className="text-sm font-medium text-[#1A1A2E]">
+                  {selectedEvent.venue}
+                </p>
+
+              </div>
+            )}
+
+            {selectedEvent.location && (
+              <div>
+
+                <p className="text-xs text-[#9090A8]">
+                  Location
+                </p>
+
+                <p className="text-sm font-medium text-[#1A1A2E]">
+                  {selectedEvent.location}
+                </p>
+
+              </div>
+            )}
+
+          </div>
+        )}
+
+      </div>
 
       {/* =====================================================
           STATS
@@ -690,25 +955,25 @@ export default function Invitations() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
 
-        {stats.map((s) => (
+        {stats.map((stat) => (
           <div
-            key={s.label}
+            key={stat.label}
             className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-5"
           >
 
             <div className="flex items-center justify-between mb-2">
 
               <p className="text-xs font-medium text-[#9090A8] uppercase tracking-wider">
-                {s.label}
+                {stat.label}
               </p>
 
               <span
                 className="text-xs font-bold"
                 style={{
-                  color: s.color,
+                  color: stat.color,
                 }}
               >
-                {s.pct}%
+                {stat.pct}%
               </span>
 
             </div>
@@ -716,10 +981,10 @@ export default function Invitations() {
             <p
               className="font-display text-3xl"
               style={{
-                color: s.color,
+                color: stat.color,
               }}
             >
-              {s.value}
+              {stat.value}
             </p>
 
             <div className="mt-3 h-1 bg-[#F0F0F8] rounded-full overflow-hidden">
@@ -727,9 +992,9 @@ export default function Invitations() {
               <div
                 className="h-full rounded-full transition-all"
                 style={{
-                  width: `${s.pct}%`,
+                  width: `${stat.pct}%`,
                   background:
-                    s.color,
+                    stat.color,
                 }}
               />
 
@@ -741,47 +1006,56 @@ export default function Invitations() {
       </div>
 
       {/* =====================================================
-          PUBLIC REGISTRATION LINK
+          INVITATION LINK
       ====================================================== */}
 
-      <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-6">
+      {invitationLink && (
+        <div className="bg-[#E6F4F1] border border-[#B9E3D9] rounded-2xl p-5">
 
-        <h3 className="font-semibold text-[#1A1A2E] mb-3">
-          Public Registration Link
-        </h3>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
 
-        <p className="text-sm text-[#5A5A72] mb-4">
-          Share this link for open registrations.
-        </p>
+            <div className="min-w-0">
 
-        <div className="flex gap-3">
+              <div className="flex items-center gap-2">
 
-          <div className="flex-1 px-4 py-2.5 bg-[#FAFAF7] border border-[#E8E8F0] rounded-xl text-sm text-[#5A5A72] font-mono truncate">
-            {publicRegistrationLink}
+                <span className="w-7 h-7 rounded-full bg-[#3D9E8C] text-white flex items-center justify-center text-sm font-bold">
+                  ✓
+                </span>
+
+                <h3 className="font-semibold text-[#1A1A2E]">
+                  Invitation created
+                </h3>
+
+              </div>
+
+              <p className="text-sm text-[#5A5A72] mt-2">
+                Share this link with the participant.
+              </p>
+
+              <div className="mt-3 px-4 py-3 bg-white border border-[#D8E8E3] rounded-xl text-sm font-mono text-[#5A5A72] break-all">
+                {invitationLink}
+              </div>
+
+            </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                copyLink(
+                  invitationLink
+                )
+              }
+              className="shrink-0 gradient-primary text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity"
+            >
+              {copied
+                ? 'Copied!'
+                : 'Copy Link'}
+            </button>
+
           </div>
 
-          <button
-            onClick={() =>
-              copyLink(
-                publicRegistrationLink
-              )
-            }
-            className={`shrink-0 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
-              copied ===
-              publicRegistrationLink
-                ? 'bg-[#E6F4F1] text-[#3D9E8C]'
-                : 'gradient-primary text-white hover:opacity-90'
-            }`}
-          >
-            {copied ===
-            publicRegistrationLink
-              ? 'Copied!'
-              : 'Copy Link'}
-          </button>
-
         </div>
-
-      </div>
+      )}
 
       {/* =====================================================
           TABS
@@ -789,33 +1063,33 @@ export default function Invitations() {
 
       <div className="flex gap-1 bg-[#F3F2EC] rounded-xl p-1 w-fit">
 
-        {(
-          [
-            'overview',
-            'create',
-            'import',
-          ] as const
-        ).map((t) => (
+        <button
+          type="button"
+          onClick={() =>
+            setTab('overview')
+          }
+          className={`px-5 py-2.5 text-sm font-medium rounded-lg transition-all ${
+            tab === 'overview'
+              ? 'bg-white text-[#5B6FD4] shadow-soft'
+              : 'text-[#9090A8] hover:text-[#5A5A72]'
+          }`}
+        >
+          Track Status
+        </button>
 
-          <button
-            key={t}
-            onClick={() =>
-              setTab(t)
-            }
-            className={`px-4 py-2 text-sm font-medium rounded-lg capitalize transition-all ${
-              tab === t
-                ? 'bg-white text-[#5B6FD4] shadow-soft'
-                : 'text-[#9090A8] hover:text-[#5A5A72]'
-            }`}
-          >
-            {t === 'create'
-              ? 'Send Invite'
-              : t === 'import'
-              ? 'Import List'
-              : 'Track Status'}
-          </button>
-
-        ))}
+        <button
+          type="button"
+          onClick={() =>
+            setTab('create')
+          }
+          className={`px-5 py-2.5 text-sm font-medium rounded-lg transition-all ${
+            tab === 'create'
+              ? 'bg-white text-[#5B6FD4] shadow-soft'
+              : 'text-[#9090A8] hover:text-[#5A5A72]'
+          }`}
+        >
+          Send Invite
+        </button>
 
       </div>
 
@@ -824,15 +1098,71 @@ export default function Invitations() {
       ====================================================== */}
 
       {tab === 'overview' && (
-
         <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft overflow-hidden">
 
-          {invitations.length === 0 ? (
+          <div className="px-6 py-5 border-b border-[#F0F0F8]">
+
+            <div className="flex items-center justify-between">
+
+              <div>
+
+                <h3 className="font-semibold text-[#1A1A2E]">
+                  Participant Invitations
+                </h3>
+
+                <p className="text-xs text-[#9090A8] mt-1">
+                  {selectedEvent
+                    ? selectedEvent.name
+                    : 'Select an event'}
+                </p>
+
+              </div>
+
+              <span className="text-xs text-[#9090A8]">
+                {eventInvitations.length}{' '}
+                invitation
+                {eventInvitations.length !==
+                1
+                  ? 's'
+                  : ''}
+              </span>
+
+            </div>
+
+          </div>
+
+          {/* =================================================
+              NO EVENT SELECTED
+          ================================================== */}
+
+          {!selectedEventId ? (
+            <div className="p-12 text-center">
+
+              <p className="font-semibold text-[#1A1A2E]">
+                Select an event
+              </p>
+
+              <p className="text-sm text-[#9090A8] mt-1">
+                Choose an event above to view its invitations.
+              </p>
+
+            </div>
+
+          ) : eventInvitations.length ===
+            0 ? (
+
+            /* =================================================
+                NO INVITATIONS
+            ================================================== */
 
             <div className="p-12 text-center">
 
-              <div className="text-4xl mb-3">
-                ◈
+              <div className="w-12 h-12 bg-[#EEF2FF] rounded-2xl flex items-center justify-center mx-auto mb-3">
+
+                <span className="text-xl text-[#5B6FD4]">
+                  ✉
+                </span>
+
               </div>
 
               <h3 className="font-semibold text-[#1A1A2E]">
@@ -840,10 +1170,11 @@ export default function Invitations() {
               </h3>
 
               <p className="text-sm text-[#9090A8] mt-1">
-                Send your first participant invitation.
+                No participants have been invited to this event.
               </p>
 
               <button
+                type="button"
                 onClick={() =>
                   setTab('create')
                 }
@@ -856,6 +1187,10 @@ export default function Invitations() {
 
           ) : (
 
+            /* =================================================
+                INVITATION TABLE
+            ================================================== */
+
             <div className="overflow-x-auto">
 
               <table className="w-full text-sm">
@@ -866,10 +1201,6 @@ export default function Invitations() {
 
                     <th className="text-left px-6 py-3 text-xs font-semibold text-[#9090A8] uppercase tracking-wider">
                       Participant
-                    </th>
-
-                    <th className="text-left px-6 py-3 text-xs font-semibold text-[#9090A8] uppercase tracking-wider">
-                      Event
                     </th>
 
                     <th className="text-left px-6 py-3 text-xs font-semibold text-[#9090A8] uppercase tracking-wider">
@@ -890,123 +1221,169 @@ export default function Invitations() {
 
                 <tbody className="divide-y divide-[#F0F0F8]">
 
-                  {invitations.map(
-                    (invitation) => {
+                  {eventInvitations.map(
+                    (invitation) => (
 
-                      const eventName =
-                        typeof invitation.event ===
-                        'string'
-                          ? invitation.event
-                          : invitation.event?.name ||
-                            'Unknown Event';
+                      <tr
+                        key={
+                          invitation._id
+                        }
+                        className="hover:bg-[#FAFAF7] transition-colors"
+                      >
 
-                      return (
+                        {/* =================================
+                            PARTICIPANT
+                        ================================== */}
 
-                        <tr
-                          key={
-                            invitation._id
-                          }
-                          className="hover:bg-[#FAFAF7] transition-colors"
-                        >
+                        <td className="px-6 py-4">
 
-                          <td className="px-6 py-3.5">
+                          <div className="flex items-center gap-3">
 
-                            <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-full bg-[#EEF2FF] flex items-center justify-center text-[#5B6FD4] font-semibold text-sm">
 
-                              <div className="w-9 h-9 rounded-full bg-[#EEF2FF] flex items-center justify-center text-[#5B6FD4] font-semibold text-sm">
-                                {invitation.name
-                                  .charAt(0)
-                                  .toUpperCase()}
-                              </div>
-
-                              <div>
-
-                                <p className="font-medium text-[#1A1A2E]">
-                                  {invitation.name}
-                                </p>
-
-                                <p className="text-xs text-[#9090A8]">
-                                  {invitation.email}
-                                </p>
-
-                                {/* Mobile appears here only
-                                    after participant provides it */}
-                                {invitation.mobile && (
-                                  <p className="text-xs text-[#9090A8] mt-0.5">
-                                    {invitation.mobile}
-                                  </p>
-                                )}
-
-                              </div>
+                              {invitation.name
+                                .charAt(0)
+                                .toUpperCase()}
 
                             </div>
 
-                          </td>
+                            <div>
 
-                          <td className="px-6 py-3.5 text-[#5A5A72]">
-                            {eventName}
-                          </td>
+                              <p className="font-medium text-[#1A1A2E]">
+                                {invitation.name}
+                              </p>
 
-                          <td className="px-6 py-3.5">
+                              <p className="text-xs text-[#9090A8]">
+                                {invitation.email}
+                              </p>
 
-                            <InvBadge
-                              status={
-                                invitation.status
-                              }
-                            />
+                              {invitation.mobile && (
+                                <p className="text-xs text-[#9090A8] mt-0.5">
+                                  {invitation.mobile}
+                                </p>
+                              )}
 
-                          </td>
+                            </div>
 
-                          <td className="px-6 py-3.5 text-xs text-[#9090A8]">
+                          </div>
 
-                            {new Date(
-                              invitation.expiresAt
-                            ).toLocaleDateString()}
+                        </td>
 
-                          </td>
+                        {/* =================================
+                            STATUS
+                        ================================== */}
 
-                          <td className="px-6 py-3.5">
+                        <td className="px-6 py-4">
+
+                          <InvBadge
+                            status={
+                              invitation.status
+                            }
+                          />
+
+                        </td>
+
+                        {/* =================================
+                            EXPIRY
+                        ================================== */}
+
+                        <td className="px-6 py-4 text-xs text-[#9090A8]">
+
+                          {new Date(
+                            invitation.expiresAt
+                          ).toLocaleDateString(
+                            'en-US',
+                            {
+                              month:
+                                'short',
+
+                              day:
+                                'numeric',
+
+                              year:
+                                'numeric',
+                            }
+                          )}
+
+                        </td>
+
+                        {/* =================================
+                            ACTIONS
+                        ================================== */}
+
+                        <td className="px-6 py-4">
+
+                          <div className="flex items-center gap-4">
+
+                            {/* RESEND */}
 
                             {invitation.status ===
                               'pending' && (
-
                               <button
+                                type="button"
                                 onClick={() =>
                                   resendInvitation(
                                     invitation
                                   )
                                 }
-                                className="text-xs text-[#5B6FD4] font-medium hover:underline"
+                                disabled={
+                                  deletingId ===
+                                  invitation._id
+                                }
+                                className="text-xs text-[#5B6FD4] font-medium hover:underline disabled:opacity-50"
                               >
                                 Resend
                               </button>
-
                             )}
+
+                            {/* ACCEPTED */}
 
                             {invitation.status ===
                               'accepted' && (
-
                               <span className="text-xs text-[#3D9E8C] font-medium">
                                 Accepted
                               </span>
-
                             )}
+
+                            {/* EXPIRED */}
 
                             {invitation.status ===
                               'expired' && (
-
                               <span className="text-xs text-[#D95B5B] font-medium">
                                 Expired
                               </span>
-
                             )}
 
-                          </td>
+                            {/* =================================
+                                DELETE
+                            ================================== */}
 
-                        </tr>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                deleteInvitation(
+                                  invitation
+                                )
+                              }
+                              disabled={
+                                deletingId ===
+                                invitation._id
+                              }
+                              className="text-xs text-[#D95B5B] font-medium hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {deletingId ===
+                              invitation._id
+                                ? 'Deleting...'
+                                : 'Delete'}
+                            </button>
 
-                      );
-                    }
+                          </div>
+
+                        </td>
+
+                      </tr>
+
+                    )
                   )}
 
                 </tbody>
@@ -1018,7 +1395,6 @@ export default function Invitations() {
           )}
 
         </div>
-
       )}
 
       {/* =====================================================
@@ -1026,21 +1402,87 @@ export default function Invitations() {
       ====================================================== */}
 
       {tab === 'create' && (
-
         <div className="max-w-lg">
 
           <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-6">
 
-            <h3 className="font-semibold text-[#1A1A2E] mb-5">
-              Send Individual Invitation
-            </h3>
+            <div className="mb-6">
+
+              <h3 className="font-semibold text-[#1A1A2E]">
+                Send Individual Invitation
+              </h3>
+
+              <p className="text-sm text-[#9090A8] mt-1">
+                Invite a participant to a specific event.
+              </p>
+
+            </div>
 
             <form
               onSubmit={sendInvite}
-              className="space-y-4"
+              className="space-y-5"
             >
 
-              {/* NAME */}
+              {/* =============================================
+                  EVENT
+              ============================================== */}
+
+              <div>
+
+                <label className="block text-sm font-medium text-[#1A1A2E] mb-1.5">
+                  Event
+                </label>
+
+                <select
+                  value={
+                    selectedEventId
+                  }
+                  onChange={(e) =>
+                    handleEventChange(
+                      e.target.value
+                    )
+                  }
+                  className="w-full px-4 py-2.5 rounded-xl border border-[#E8E8F0] bg-[#FAFAF7] text-sm text-[#1A1A2E] focus:outline-none focus:border-[#5B6FD4] focus:ring-2 focus:ring-[#5B6FD4]/10 transition-all"
+                >
+
+                  <option value="">
+                    Select an event
+                  </option>
+
+                  {events.map(
+                    (event) => (
+                      <option
+                        key={
+                          event._id
+                        }
+                        value={
+                          event._id
+                        }
+                      >
+                        {event.name}
+                      </option>
+                    )
+                  )}
+
+                </select>
+
+                {selectedEvent && (
+                  <p className="text-xs text-[#9090A8] mt-2">
+
+                    {selectedEvent.venue
+                      ? `Venue: ${selectedEvent.venue}`
+                      : selectedEvent.location
+                      ? `Location: ${selectedEvent.location}`
+                      : 'No venue specified'}
+
+                  </p>
+                )}
+
+              </div>
+
+              {/* =============================================
+                  NAME
+              ============================================== */}
 
               <div>
 
@@ -1062,7 +1504,9 @@ export default function Invitations() {
 
               </div>
 
-              {/* EMAIL */}
+              {/* =============================================
+                  EMAIL
+              ============================================== */}
 
               <div>
 
@@ -1084,151 +1528,42 @@ export default function Invitations() {
 
               </div>
 
-              {/* COMPANY */}
+              {/* =============================================
+                  ACTIONS
+              ============================================== */}
 
-              <div>
+              <div className="flex gap-3 pt-2">
 
-                <label className="block text-sm font-medium text-[#1A1A2E] mb-1.5">
-                  Company
-                </label>
+                <button
+                  type="submit"
+                  disabled={sending}
+                  className="flex-1 gradient-primary text-white font-semibold py-3 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
+                >
+                  {sending
+                    ? 'Creating Invitation...'
+                    : 'Send Invitation'}
+                </button>
 
-                <input
-                  type="text"
-                  value={company}
-                  onChange={(e) =>
-                    setCompany(
-                      e.target.value
+                <button
+                  type="button"
+                  disabled={sending}
+                  onClick={() =>
+                    setTab(
+                      'overview'
                     )
                   }
-                  placeholder="Acme Corp"
-                  className="w-full px-4 py-2.5 rounded-xl border border-[#E8E8F0] bg-[#FAFAF7] text-sm focus:outline-none focus:border-[#5B6FD4] focus:ring-2 focus:ring-[#5B6FD4]/10 transition-all"
-                />
+                  className="px-5 py-3 rounded-xl bg-[#F2F2F9] text-[#4F506B] font-medium hover:bg-[#EAEAF4] transition disabled:opacity-50"
+                >
+                  Cancel
+                </button>
 
               </div>
-
-              {/* MESSAGE */}
-
-              <div>
-
-                <label className="block text-sm font-medium text-[#1A1A2E] mb-1.5">
-                  Personal Message (optional)
-                </label>
-
-                <textarea
-                  rows={3}
-                  value={message}
-                  onChange={(e) =>
-                    setMessage(
-                      e.target.value
-                    )
-                  }
-                  placeholder="We'd love for you to join us at Tech Summit 2026..."
-                  className="w-full px-4 py-2.5 rounded-xl border border-[#E8E8F0] bg-[#FAFAF7] text-sm focus:outline-none focus:border-[#5B6FD4] focus:ring-2 focus:ring-[#5B6FD4]/10 transition-all resize-none"
-                />
-
-              </div>
-
-              {/* SEND */}
-
-              <button
-                type="submit"
-                disabled={sending}
-                className="w-full gradient-primary text-white font-semibold py-3 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
-              >
-                {sending
-                  ? 'Creating Invitation...'
-                  : 'Send Invitation'}
-              </button>
 
             </form>
 
           </div>
 
         </div>
-
-      )}
-
-      {/* =====================================================
-          IMPORT
-      ====================================================== */}
-
-      {tab === 'import' && (
-
-        <div className="max-w-lg">
-
-          <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-6">
-
-            <h3 className="font-semibold text-[#1A1A2E] mb-2">
-              Import Participant List
-            </h3>
-
-            <p className="text-sm text-[#9090A8] mb-5">
-              Upload a CSV file with columns:
-              Name, Email, Mobile, Company, Role
-            </p>
-
-            <div
-              className="border-2 border-dashed border-[#D0D0E8] rounded-2xl p-10 text-center hover:border-[#5B6FD4] transition-colors cursor-pointer"
-              onClick={() =>
-                show(
-                  'CSV import will be connected next'
-                )
-              }
-            >
-
-              <div className="w-12 h-12 bg-[#EEF2FF] rounded-2xl flex items-center justify-center mx-auto mb-3">
-
-                <svg
-                  className="w-6 h-6 text-[#5B6FD4]"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                  />
-
-                </svg>
-
-              </div>
-
-              <p className="text-sm font-medium text-[#1A1A2E]">
-                Drop CSV file here
-              </p>
-
-              <p className="text-xs text-[#9090A8] mt-1">
-                or click to browse
-              </p>
-
-            </div>
-
-            <div className="mt-4 pt-4 border-t border-[#E8E8F0]">
-
-              <p className="text-xs text-[#9090A8] mb-2">
-                Download template
-              </p>
-
-              <button
-                onClick={() =>
-                  show(
-                    'CSV template functionality will be added next'
-                  )
-                }
-                className="text-xs text-[#5B6FD4] font-medium hover:underline"
-              >
-                participants-template.csv
-              </button>
-
-            </div>
-
-          </div>
-
-        </div>
-
       )}
 
     </div>
@@ -1271,7 +1606,7 @@ function InvBadge({
     },
   };
 
-  const s =
+  const current =
     map[status] ||
     map.pending;
 
@@ -1279,11 +1614,13 @@ function InvBadge({
     <span
       className="text-xs px-2.5 py-1 rounded-full font-medium"
       style={{
-        background: s.bg,
-        color: s.text,
+        background:
+          current.bg,
+        color:
+          current.text,
       }}
     >
-      {s.label}
+      {current.label}
     </span>
   );
 }

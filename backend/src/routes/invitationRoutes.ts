@@ -1,4 +1,3 @@
-
 import { Router } from "express";
 
 import authMiddleware from "../middleware/authMiddleware";
@@ -10,45 +9,89 @@ import {
   acceptInvitation,
   sendInvitationOTP,
   verifyInvitationOTP,
+  deleteInvitation,
 } from "../controllers/invitationController";
 
 const router = Router();
 
-// ===============================
-// Admin routes
-// ===============================
+// =========================================================
+// ADMIN ROUTES
+// =========================================================
 
-router.post("/", authMiddleware, createInvitation);
+// ---------------------------------------------------------
+// CREATE INVITATION
+// ---------------------------------------------------------
 
-router.get("/", authMiddleware, getInvitations);
+router.post(
+  "/",
+  authMiddleware,
+  createInvitation
+);
 
-// ===============================
-// Public invitation routes
-// ===============================
+// ---------------------------------------------------------
+// GET ALL INVITATIONS
+// ---------------------------------------------------------
 
-// Get invitation details
+router.get(
+  "/",
+  authMiddleware,
+  getInvitations
+);
+
+// ---------------------------------------------------------
+// DELETE INVITATION / REMOVE PARTICIPANT
+// ---------------------------------------------------------
+//
+// DELETE:
+// /api/invitations/:invitationId
+//
+// ---------------------------------------------------------
+
+router.delete(
+  "/:invitationId",
+  authMiddleware,
+  deleteInvitation
+);
+
+// =========================================================
+// PUBLIC INVITATION ROUTES
+// =========================================================
+
+// ---------------------------------------------------------
+// GET INVITATION DETAILS
+// ---------------------------------------------------------
+
 router.get(
   "/accept/:token",
   getInvitationByToken
 );
 
-// Old password-based invitation acceptance
+// ---------------------------------------------------------
+// OLD PASSWORD-BASED ACCEPT ROUTE
+// ---------------------------------------------------------
+
 router.post(
   "/accept/:token",
   acceptInvitation
 );
 
-// ===============================
-// OTP authentication routes
-// ===============================
+// =========================================================
+// OTP AUTHENTICATION ROUTES
+// =========================================================
 
-// Send OTP to participant's mobile
+// ---------------------------------------------------------
+// SEND OTP
+// ---------------------------------------------------------
+
 router.post(
   "/:token/send-otp",
   sendInvitationOTP
 );
 
-// Verify OTP and create/login participant
+// ---------------------------------------------------------
+// VERIFY OTP
+// ---------------------------------------------------------
+
 router.post(
   "/:token/verify-otp",
   verifyInvitationOTP

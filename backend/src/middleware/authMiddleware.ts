@@ -13,10 +13,16 @@ const authMiddleware = (
   res: Response,
   next: NextFunction
 ) => {
+  console.log("🔥 AUTH MIDDLEWARE HIT:", req.method, req.originalUrl);
+
   try {
     const authHeader = req.headers.authorization;
 
+    console.log("Authorization header:", !!authHeader);
+
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.log("❌ No Bearer token");
+
       return res.status(401).json({
         message: "Authentication token required",
       });
@@ -35,10 +41,14 @@ const authMiddleware = (
       role: "admin" | "participant";
     };
 
+    console.log("✅ Token verified:", decoded);
+
     req.user = decoded;
 
     next();
   } catch (error) {
+    console.error("❌ Auth error:", error);
+
     return res.status(401).json({
       message: "Invalid or expired token",
     });

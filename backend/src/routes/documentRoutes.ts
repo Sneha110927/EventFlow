@@ -1,10 +1,13 @@
 import { Router } from "express";
-
 import authMiddleware from "../middleware/authMiddleware";
-
 import upload from "../config/upload";
 
 import {
+  getDocumentEvents,
+  getDocumentParticipants,
+  createDocumentRequest,
+  getDocumentRequests,
+  getMyDocumentRequests,
   uploadDocument,
   getMyDocuments,
   getAllDocuments,
@@ -15,12 +18,54 @@ import {
 
 const router = Router();
 
+/*
+|--------------------------------------------------------------------------
+| Admin document management
+|--------------------------------------------------------------------------
+*/
 
-// =========================================================
-// PARTICIPANT
-// =========================================================
+// Events available for document management
+router.get(
+  "/events",
+  authMiddleware,
+  getDocumentEvents
+);
 
-// Upload document
+// Participants belonging to an event
+router.get(
+  "/participants",
+  authMiddleware,
+  getDocumentParticipants
+);
+
+// Create document request
+router.post(
+  "/requests",
+  authMiddleware,
+  createDocumentRequest
+);
+
+// Get document requests
+router.get(
+  "/requests",
+  authMiddleware,
+  getDocumentRequests
+);
+
+/*
+|--------------------------------------------------------------------------
+| Participant document management
+|--------------------------------------------------------------------------
+*/
+
+// Participant's own document requests
+router.get(
+  "/my-requests",
+  authMiddleware,
+  getMyDocumentRequests
+);
+
+// Participant uploads document
 router.post(
   "/upload",
   authMiddleware,
@@ -28,44 +73,47 @@ router.post(
   uploadDocument
 );
 
-// Get participant's own documents
+// Participant's own uploaded documents
 router.get(
   "/my-documents",
   authMiddleware,
   getMyDocuments
 );
 
+/*
+|--------------------------------------------------------------------------
+| Admin document list
+|--------------------------------------------------------------------------
+*/
 
-// =========================================================
-// ADMIN
-// =========================================================
-
-// Get all uploaded documents
+// All documents
 router.get(
   "/",
   authMiddleware,
   getAllDocuments
 );
 
-// Approve document
+/*
+|--------------------------------------------------------------------------
+| Document actions
+|--------------------------------------------------------------------------
+*/
+
+// Approve
 router.put(
   "/:id/approve",
   authMiddleware,
   approveDocument
 );
 
-// Reject document
+// Reject
 router.put(
   "/:id/reject",
   authMiddleware,
   rejectDocument
 );
 
-
-// =========================================================
-// DOWNLOAD
-// =========================================================
-
+// Download
 router.get(
   "/:id/download",
   authMiddleware,

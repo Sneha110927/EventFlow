@@ -1,17 +1,15 @@
-
 import {
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
+  type ChangeEvent,
 } from 'react';
 
-import { io, type Socket } from 'socket.io-client';
-
 import {
-  mockAnnouncements,
-} from '../../Data/mockData';
+  io,
+  type Socket,
+} from 'socket.io-client';
 
 interface ParticipantDashboardProps {
   onLogout: () => void;
@@ -32,6 +30,7 @@ interface EventData {
   startDate?: string;
   endDate?: string;
   location?: string;
+
   modules?: {
     participants?: boolean;
     registration?: boolean;
@@ -48,25 +47,111 @@ interface ParticipantEvent {
   _id: string;
   event: EventData;
   participant: string;
+
   status:
     | 'pending'
     | 'accepted'
     | 'registered';
+
   registrationCompleted: boolean;
   joinedAt?: string;
 }
 
 interface ParticipantDocument {
   _id: string;
-  name: string;
-  originalName: string;
-  filename: string;
-  mimetype: string;
-  size: number;
+
+  event?: string | {
+    _id: string;
+    name?: string;
+  };
+
+  user?: string | {
+    _id: string;
+    name?: string;
+  };
+
+  name?: string;
+  originalName?: string;
+  filename?: string;
+
+  mimetype?: string;
+  size?: number;
+
   status:
     | 'approved'
     | 'pending'
     | 'rejected';
+
+  createdAt: string;
+  updatedAt: string;
+}
+
+/*
+|--------------------------------------------------------------------------
+| DOCUMENT REQUEST
+|--------------------------------------------------------------------------
+*/
+
+interface ParticipantDocumentRequest {
+  _id: string;
+
+  event?: string | {
+    _id: string;
+    name?: string;
+  };
+
+  participant?: string;
+
+  documentName: string;
+
+  description?: string;
+
+  required: boolean;
+
+  deadline: string;
+
+  status:
+    | 'pending'
+    | 'submitted'
+    | 'approved'
+    | 'rejected';
+
+  document?: string | {
+    _id: string;
+  };
+
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface ParticipantAnnouncement {
+  _id: string;
+
+  title: string;
+  content: string;
+
+  target:
+    | 'all'
+    | 'confirmed'
+    | 'pending';
+
+  sentBy?: {
+    _id: string;
+    name: string;
+    email?: string;
+  } | string;
+
+  event?: {
+    _id: string;
+    name: string;
+  } | string;
+
+  readBy?: Array<
+    string | {
+      _id: string;
+    }
+  >;
+
   createdAt: string;
   updatedAt: string;
 }
@@ -75,31 +160,45 @@ interface ChatUser {
   _id: string;
   name: string;
   email: string;
-  role: 'admin' | 'participant';
+  role:
+    | 'admin'
+    | 'participant';
 }
 
 interface ChatMessage {
   _id: string;
+
   conversation: string;
+
   sender: ChatUser;
+
   content: string;
+
   readAt?: string;
+
   createdAt: string;
   updatedAt: string;
 }
 
 interface Conversation {
   _id: string;
+
   admin: ChatUser;
+
   participant: ChatUser;
+
   lastMessage?: ChatMessage;
+
   lastMessageAt?: string;
+
   createdAt: string;
   updatedAt: string;
 }
 
-interface SendMessageResponse {
-  message: ChatMessage;
+interface SocketSendResult {
+  success: boolean;
+  message?: ChatMessage;
+  error?: string;
 }
 
 const API_BASE_URL =
@@ -108,160 +207,450 @@ const API_BASE_URL =
 const SOCKET_URL =
   'http://localhost:5000';
 
+/*
+|--------------------------------------------------------------------------
+| Small API helper
+|--------------------------------------------------------------------------
+*/
+
+async function apiRequest(
+  url: string,
+  options: RequestInit = {}
+): Promise<{
+  response: Response;
+  data: unknown;
+}> {
+  const response =
+    await fetch(url, options);
+
+  const contentType =
+    response.headers.get(
+      'content-type'
+    ) || '';
+
+  if (
+    contentType.includes(
+      'application/json'
+    )
+  ) {
+    const data =
+      await response.json();
+
+    return {
+      response,
+      data,
+    };
+  }
+
+  const text =
+    await response.text();
+
+  if (
+    text.trimStart().startsWith(
+      '<!DOCTYPE'
+    ) ||
+    text.trimStart().startsWith(
+      '<html'
+    )
+  ) {
+    throw new Error(
+      `Server returned an HTML page instead of JSON for ${url}. Make sure the EventFlow backend is running on http://localhost:5000.`
+    );
+  }
+
+  throw new Error(
+    text ||
+      `Request failed with status ${response.status}`
+  );
+}
+
 export default function ParticipantDashboard({
   onLogout,
 }: ParticipantDashboardProps) {
-  const [activeTab, setActiveTab] = useState<
-    'home' | 'documents' | 'announcements' | 'chat'
+  /*
+  |--------------------------------------------------------------------------
+  | GENERAL
+  |--------------------------------------------------------------------------
+  */
+
+  const [
+    activeTab,
+    setActiveTab,
+  ] = useState<
+    'home' |
+    'documents' |
+    'announcements' |
+    'chat'
   >('home');
 
-  const [participant, setParticipant] =
-    useState<LoggedInUser | null>(null);
+  const [
+    participant,
+    setParticipant,
+  ] =
+    useState<LoggedInUser | null>(
+      null
+    );
 
-  const [participantEvent, setParticipantEvent] =
-    useState<ParticipantEvent | null>(null);
+  const [
+    participantEvent,
+    setParticipantEvent,
+  ] =
+    useState<ParticipantEvent | null>(
+      null
+    );
 
-  // =========================================================
-  // DOCUMENT STATE
-  // =========================================================
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
 
-  const [documents, setDocuments] =
-    useState<ParticipantDocument[]>([]);
+  const [
+    error,
+    setError,
+  ] = useState('');
 
-  const [uploading, setUploading] =
-    useState(false);
+  const [
+    notification,
+    setNotification,
+  ] = useState('');
 
-  // =========================================================
-  // CHAT STATE
-  // =========================================================
+  /*
+  |--------------------------------------------------------------------------
+  | DOCUMENTS
+  |--------------------------------------------------------------------------
+  */
 
-  const [messages, setMessages] =
-    useState<ChatMessage[]>([]);
+  const [
+    documents,
+    setDocuments,
+  ] = useState<
+    ParticipantDocument[]
+  >([]);
 
-  const [newMsg, setNewMsg] =
-    useState('');
+  const [
+    documentRequests,
+    setDocumentRequests,
+  ] = useState<
+    ParticipantDocumentRequest[]
+  >([]);
 
-  const [conversation, setConversation] =
-    useState<Conversation | null>(null);
+  const [
+    uploading,
+    setUploading,
+  ] = useState(false);
 
-  const [chatLoading, setChatLoading] =
-    useState(false);
+  /*
+  |--------------------------------------------------------------------------
+  | Used to prevent the polling system from
+  | showing the same request notification
+  | repeatedly.
+  |--------------------------------------------------------------------------
+  */
 
-  const [chatSending, setChatSending] =
-    useState(false);
+  const knownRequestIdsRef =
+    useRef<Set<string>>(
+      new Set()
+    );
 
-  const [socketConnected, setSocketConnected] =
-    useState(false);
+  const initialRequestsLoadedRef =
+    useRef(false);
+
+  /*
+  |--------------------------------------------------------------------------
+  | ANNOUNCEMENTS
+  |--------------------------------------------------------------------------
+  */
+
+  const [
+    announcements,
+    setAnnouncements,
+  ] = useState<
+    ParticipantAnnouncement[]
+  >([]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | CHAT
+  |--------------------------------------------------------------------------
+  */
+
+  const [
+    messages,
+    setMessages,
+  ] = useState<ChatMessage[]>([]);
+
+  const [
+    newMsg,
+    setNewMsg,
+  ] = useState('');
+
+  const [
+    conversation,
+    setConversation,
+  ] =
+    useState<Conversation | null>(
+      null
+    );
+
+  const [
+    chatLoading,
+    setChatLoading,
+  ] = useState(false);
+
+  const [
+    chatSending,
+    setChatSending,
+  ] = useState(false);
+
+  const [
+    socketConnected,
+    setSocketConnected,
+  ] = useState(false);
 
   const socketRef =
     useRef<Socket | null>(null);
 
   const conversationIdRef =
-    useRef<string | null>(null);
+    useRef<string | null>(
+      null
+    );
 
   const messageIdsRef =
-    useRef<Set<string>>(new Set());
+    useRef<Set<string>>(
+      new Set()
+    );
 
-  // =========================================================
-  // GENERAL STATE
-  // =========================================================
+  /*
+  |--------------------------------------------------------------------------
+  | NOTIFICATION
+  |--------------------------------------------------------------------------
+  */
 
-  const [notification, setNotification] =
-    useState('');
+  const show = useCallback(
+    (message: string) => {
+      setNotification(message);
 
-  const [loading, setLoading] =
-    useState(true);
+      window.setTimeout(() => {
+        setNotification('');
+      }, 3000);
+    },
+    []
+  );
 
-  const [error, setError] =
-    useState('');
+  /*
+  |--------------------------------------------------------------------------
+  | LOAD DOCUMENT REQUESTS
+  |--------------------------------------------------------------------------
+  |
+  | Admin creates requests from the admin Documents
+  | page. Participants retrieve their own requests
+  | using:
+  |
+  | GET /api/documents/my-requests
+  |
+  */
 
-  // =========================================================
-  // Notification
-  // =========================================================
+  const loadDocumentRequests =
+    useCallback(
+      async (
+        notifyOnNew = false
+      ) => {
+        const token =
+          localStorage.getItem(
+            'token'
+          );
 
-  const show = useCallback((msg: string) => {
-    setNotification(msg);
+        if (!token) {
+          return;
+        }
 
-    window.setTimeout(() => {
-      setNotification('');
-    }, 3000);
-  }, []);
-
-  // =========================================================
-  // Load participant data
-  // =========================================================
-
-  useEffect(() => {
-    const loadParticipantData =
-      async () => {
         try {
-          const token =
-            localStorage.getItem(
-              'token'
+          const result =
+            await apiRequest(
+              `${API_BASE_URL}/documents/my-requests`,
+              {
+                method: 'GET',
+                headers: {
+                  Authorization:
+                    `Bearer ${token}`,
+                },
+              }
             );
 
-          const storedUser =
-            localStorage.getItem(
-              'user'
-            );
+          const data =
+            result.data as {
+              requests?: ParticipantDocumentRequest[];
+              message?: string;
+            };
 
-          if (!token) {
-            setError(
-              'You are not logged in.'
+          if (
+            !result.response.ok
+          ) {
+            throw new Error(
+              data.message ||
+                'Failed to load document requests'
             );
-            setLoading(false);
-            return;
           }
 
-          // ---------------------------------------------------
-          // Logged-in participant
-          // ---------------------------------------------------
+          const incomingRequests =
+            data.requests || [];
 
-          if (storedUser) {
-            const parsedUser: LoggedInUser =
-              JSON.parse(
-                storedUser
+          /*
+          |--------------------------------------------------------------------------
+          | Detect newly-created pending requests.
+          |--------------------------------------------------------------------------
+          */
+
+          if (
+            notifyOnNew &&
+            initialRequestsLoadedRef.current
+          ) {
+            const newRequests =
+              incomingRequests.filter(
+                (request) =>
+                  !knownRequestIdsRef.current.has(
+                    request._id
+                  ) &&
+                  request.status ===
+                    'pending'
               );
 
-            setParticipant(
-              parsedUser
-            );
+            if (
+              newRequests.length >
+              0
+            ) {
+              if (
+                newRequests.length ===
+                1
+              ) {
+                show(
+                  `New document request: ${newRequests[0].documentName}`
+                );
+              } else {
+                show(
+                  `You have ${newRequests.length} new document requests`
+                );
+              }
+            }
           }
 
-          // ---------------------------------------------------
-          // Load participant events
-          // ---------------------------------------------------
+          knownRequestIdsRef.current =
+            new Set(
+              incomingRequests.map(
+                (
+                  request
+                ) =>
+                  request._id
+              )
+            );
 
-          const response =
-            await fetch(
+          initialRequestsLoadedRef.current =
+            true;
+
+          setDocumentRequests(
+            incomingRequests
+          );
+        } catch (err) {
+          console.warn(
+            'Document requests could not be loaded:',
+            err
+          );
+        }
+      },
+      [show]
+    );
+
+  /*
+  |--------------------------------------------------------------------------
+  | LOAD PARTICIPANT DASHBOARD
+  |--------------------------------------------------------------------------
+  */
+
+  const loadParticipantData =
+    useCallback(
+      async () => {
+        const token =
+          localStorage.getItem(
+            'token'
+          );
+
+        const storedUser =
+          localStorage.getItem(
+            'user'
+          );
+
+        if (!token) {
+          setError(
+            'You are not logged in.'
+          );
+          setLoading(false);
+          return;
+        }
+
+        try {
+          /*
+          |--------------------------------------------------------------------------
+          | Logged-in user
+          |--------------------------------------------------------------------------
+          */
+
+          if (storedUser) {
+            try {
+              const parsedUser =
+                JSON.parse(
+                  storedUser
+                ) as LoggedInUser;
+
+              setParticipant(
+                parsedUser
+              );
+            } catch {
+              console.warn(
+                'Unable to parse stored user.'
+              );
+            }
+          }
+
+          /*
+          |--------------------------------------------------------------------------
+          | EVENTS
+          |--------------------------------------------------------------------------
+          */
+
+          const eventsResult =
+            await apiRequest(
               `${API_BASE_URL}/events/my-events`,
               {
                 method: 'GET',
                 headers: {
                   Authorization:
                     `Bearer ${token}`,
-                  'Content-Type':
-                    'application/json',
                 },
               }
             );
 
-          const data =
-            await response.json();
+          const eventsData =
+            eventsResult.data as {
+              events?: ParticipantEvent[];
+              message?: string;
+            };
 
-          if (!response.ok) {
+          if (
+            !eventsResult.response.ok
+          ) {
             throw new Error(
-              data.message ||
+              eventsData.message ||
                 'Failed to load your events'
             );
           }
 
           if (
-            data.events &&
-            data.events.length > 0
+            eventsData.events &&
+            eventsData.events.length >
+              0
           ) {
             setParticipantEvent(
-              data.events[0]
+              eventsData.events[0]
             );
           } else {
             setParticipantEvent(
@@ -269,28 +658,33 @@ export default function ParticipantDashboard({
             );
           }
 
-          // ---------------------------------------------------
-          // Load documents
-          // ---------------------------------------------------
+          /*
+          |--------------------------------------------------------------------------
+          | DOCUMENTS
+          |--------------------------------------------------------------------------
+          */
 
-          const documentsResponse =
-            await fetch(
+          const documentsResult =
+            await apiRequest(
               `${API_BASE_URL}/documents/my-documents`,
               {
                 method: 'GET',
                 headers: {
                   Authorization:
                     `Bearer ${token}`,
-                  'Content-Type':
-                    'application/json',
                 },
               }
             );
 
           const documentsData =
-            await documentsResponse.json();
+            documentsResult.data as {
+              documents?: ParticipantDocument[];
+              message?: string;
+            };
 
-          if (!documentsResponse.ok) {
+          if (
+            !documentsResult.response.ok
+          ) {
             throw new Error(
               documentsData.message ||
                 'Failed to load documents'
@@ -301,6 +695,69 @@ export default function ParticipantDashboard({
             documentsData.documents ||
               []
           );
+
+          /*
+          |--------------------------------------------------------------------------
+          | DOCUMENT REQUESTS
+          |--------------------------------------------------------------------------
+          |
+          | This is separate so a temporary request
+          | API problem does not destroy the dashboard.
+          |
+          */
+
+          await loadDocumentRequests(
+            false
+          );
+
+          /*
+          |--------------------------------------------------------------------------
+          | ANNOUNCEMENTS
+          |--------------------------------------------------------------------------
+          */
+
+          try {
+            const announcementResult =
+              await apiRequest(
+                `${API_BASE_URL}/announcements/participant`,
+                {
+                  method: 'GET',
+                  headers: {
+                    Authorization:
+                      `Bearer ${token}`,
+                  },
+                }
+              );
+
+            const announcementData =
+              announcementResult.data as {
+                announcements?: ParticipantAnnouncement[];
+              };
+
+            if (
+              announcementResult.response.ok
+            ) {
+              setAnnouncements(
+                announcementData.announcements ||
+                  []
+              );
+            } else {
+              setAnnouncements(
+                []
+              );
+            }
+          } catch (
+            announcementError
+          ) {
+            console.warn(
+              'Announcements could not be loaded:',
+              announcementError
+            );
+
+            setAnnouncements(
+              []
+            );
+          }
         } catch (err) {
           console.error(
             'Participant dashboard error:',
@@ -315,14 +772,74 @@ export default function ParticipantDashboard({
         } finally {
           setLoading(false);
         }
-      };
+      },
+      [
+        loadDocumentRequests,
+      ]
+    );
 
-    void loadParticipantData();
-  }, []);
+  /*
+  |--------------------------------------------------------------------------
+  | INITIAL LOAD
+  |--------------------------------------------------------------------------
+  */
 
-  // =========================================================
-  // SOCKET.IO CONNECTION
-  // =========================================================
+  useEffect(() => {
+    const timer =
+      window.setTimeout(() => {
+        void loadParticipantData();
+      }, 0);
+
+    return () => {
+      window.clearTimeout(
+        timer
+      );
+    };
+  }, [
+    loadParticipantData,
+  ]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | DOCUMENT REQUEST POLLING
+  |--------------------------------------------------------------------------
+  |
+  | Every 10 seconds we check whether the admin
+  | created a new document request.
+  |
+  */
+
+  useEffect(() => {
+    const token =
+      localStorage.getItem(
+        'token'
+      );
+
+    if (!token) {
+      return;
+    }
+
+    const timer =
+      window.setInterval(() => {
+        void loadDocumentRequests(
+          true
+        );
+      }, 10000);
+
+    return () => {
+      window.clearInterval(
+        timer
+      );
+    };
+  }, [
+    loadDocumentRequests,
+  ]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | SOCKET.IO
+  |--------------------------------------------------------------------------
+  */
 
   useEffect(() => {
     const token =
@@ -391,7 +908,9 @@ export default function ParticipantDashboard({
 
     socket.on(
       'connect_error',
-      (socketError) => {
+      (
+        socketError: Error
+      ) => {
         console.error(
           'Chat socket connection error:',
           socketError.message
@@ -405,7 +924,9 @@ export default function ParticipantDashboard({
 
     socket.on(
       'new_message',
-      (incomingMessage: ChatMessage) => {
+      (
+        incomingMessage: ChatMessage
+      ) => {
         if (
           !incomingMessage?._id
         ) {
@@ -438,8 +959,8 @@ export default function ParticipantDashboard({
         );
 
         setMessages(
-          (prev) => [
-            ...prev,
+          (previous) => [
+            ...previous,
             incomingMessage,
           ]
         );
@@ -448,10 +969,14 @@ export default function ParticipantDashboard({
 
     socket.on(
       'chat_error',
-      (data: {
-        message?: string;
-      }) => {
-        if (data?.message) {
+      (
+        data: {
+          message?: string;
+        }
+      ) => {
+        if (
+          data?.message
+        ) {
           show(
             data.message
           );
@@ -467,9 +992,11 @@ export default function ParticipantDashboard({
     };
   }, [show]);
 
-  // =========================================================
-  // Open / Load participant conversation
-  // =========================================================
+  /*
+  |--------------------------------------------------------------------------
+  | LOAD CHAT
+  |--------------------------------------------------------------------------
+  */
 
   const loadConversation =
     useCallback(
@@ -491,45 +1018,46 @@ export default function ParticipantDashboard({
             true
           );
 
-          // -------------------------------------------------
-          // First get participant conversations
-          // -------------------------------------------------
+          /*
+          |--------------------------------------------------------------------------
+          | Get conversations
+          |--------------------------------------------------------------------------
+          */
 
-          const response =
-            await fetch(
+          const result =
+            await apiRequest(
               `${API_BASE_URL}/chat/conversations`,
               {
                 method: 'GET',
                 headers: {
                   Authorization:
                     `Bearer ${token}`,
-                  'Content-Type':
-                    'application/json',
                 },
               }
             );
 
           const data =
-            await response.json();
+            result.data as {
+              conversations?: Conversation[];
+              message?: string;
+            };
 
-          if (!response.ok) {
+          if (!result.response.ok) {
             throw new Error(
               data.message ||
                 'Failed to load conversation'
             );
           }
 
-          const currentConversation:
-            | Conversation
-            | null =
+          const currentConversation =
             data.conversations?.[0] ||
             null;
 
-          // -------------------------------------------------
-          // If no conversation exists, we cannot create one
-          // from participant side because backend creation
-          // is intentionally admin-only.
-          // -------------------------------------------------
+          /*
+          |--------------------------------------------------------------------------
+          | No conversation
+          |--------------------------------------------------------------------------
+          */
 
           if (
             !currentConversation
@@ -550,9 +1078,11 @@ export default function ParticipantDashboard({
             return;
           }
 
-          // -------------------------------------------------
-          // Store conversation
-          // -------------------------------------------------
+          /*
+          |--------------------------------------------------------------------------
+          | Store conversation
+          |--------------------------------------------------------------------------
+          */
 
           setConversation(
             currentConversation
@@ -563,9 +1093,11 @@ export default function ParticipantDashboard({
 
           messageIdsRef.current.clear();
 
-          // -------------------------------------------------
-          // Join Socket.IO room
-          // -------------------------------------------------
+          /*
+          |--------------------------------------------------------------------------
+          | Join socket room
+          |--------------------------------------------------------------------------
+          */
 
           if (
             socketRef.current?.connected
@@ -579,29 +1111,32 @@ export default function ParticipantDashboard({
             );
           }
 
-          // -------------------------------------------------
-          // Load messages
-          // -------------------------------------------------
+          /*
+          |--------------------------------------------------------------------------
+          | Load messages
+          |--------------------------------------------------------------------------
+          */
 
-          const messagesResponse =
-            await fetch(
+          const messagesResult =
+            await apiRequest(
               `${API_BASE_URL}/chat/conversations/${currentConversation._id}/messages`,
               {
                 method: 'GET',
                 headers: {
                   Authorization:
                     `Bearer ${token}`,
-                  'Content-Type':
-                    'application/json',
                 },
               }
             );
 
           const messagesData =
-            await messagesResponse.json();
+            messagesResult.data as {
+              messages?: ChatMessage[];
+              message?: string;
+            };
 
           if (
-            !messagesResponse.ok
+            !messagesResult.response.ok
           ) {
             throw new Error(
               messagesData.message ||
@@ -609,15 +1144,16 @@ export default function ParticipantDashboard({
             );
           }
 
-          const loadedMessages:
-            ChatMessage[] =
+          const loadedMessages =
             messagesData.messages ||
             [];
 
           messageIdsRef.current =
             new Set(
               loadedMessages.map(
-                (message) =>
+                (
+                  message
+                ) =>
                   message._id
               )
             );
@@ -626,9 +1162,11 @@ export default function ParticipantDashboard({
             loadedMessages
           );
 
-          // -------------------------------------------------
-          // Mark messages as read
-          // -------------------------------------------------
+          /*
+          |--------------------------------------------------------------------------
+          | Mark as read
+          |--------------------------------------------------------------------------
+          */
 
           await fetch(
             `${API_BASE_URL}/chat/conversations/${currentConversation._id}/read`,
@@ -637,8 +1175,6 @@ export default function ParticipantDashboard({
               headers: {
                 Authorization:
                   `Bearer ${token}`,
-                'Content-Type':
-                  'application/json',
               },
             }
           );
@@ -662,9 +1198,11 @@ export default function ParticipantDashboard({
       [show]
     );
 
-  // =========================================================
-  // Load conversation when Chat tab opens
-  // =========================================================
+  /*
+  |--------------------------------------------------------------------------
+  | OPEN CHAT TAB
+  |--------------------------------------------------------------------------
+  */
 
   useEffect(() => {
     if (
@@ -678,18 +1216,21 @@ export default function ParticipantDashboard({
         void loadConversation();
       }, 0);
 
-    return () =>
+    return () => {
       window.clearTimeout(
         timer
       );
+    };
   }, [
     activeTab,
     loadConversation,
   ]);
 
-  // =========================================================
-  // Send chat message
-  // =========================================================
+  /*
+  |--------------------------------------------------------------------------
+  | SEND CHAT MESSAGE
+  |--------------------------------------------------------------------------
+  */
 
   const sendMsg =
     useCallback(
@@ -728,16 +1269,21 @@ export default function ParticipantDashboard({
           const socket =
             socketRef.current;
 
-          // -------------------------------------------------
-          // Preferred: Socket.IO
-          // -------------------------------------------------
+          /*
+          |--------------------------------------------------------------------------
+          | SOCKET.IO
+          |--------------------------------------------------------------------------
+          */
 
           if (
             socket &&
             socket.connected
           ) {
             await new Promise<void>(
-              (resolve, reject) => {
+              (
+                resolve,
+                reject
+              ) => {
                 socket.emit(
                   'send_message',
                   {
@@ -746,11 +1292,7 @@ export default function ParticipantDashboard({
                     content,
                   },
                   (
-                    result: {
-                      success: boolean;
-                      message?: ChatMessage;
-                      error?: string;
-                    }
+                    result: SocketSendResult
                   ) => {
                     if (
                       !result?.success
@@ -776,8 +1318,10 @@ export default function ParticipantDashboard({
                       );
 
                       setMessages(
-                        (prev) => [
-                          ...prev,
+                        (
+                          previous
+                        ) => [
+                          ...previous,
                           result.message!,
                         ]
                       );
@@ -789,12 +1333,14 @@ export default function ParticipantDashboard({
               }
             );
           } else {
-            // -------------------------------------------------
-            // REST fallback
-            // -------------------------------------------------
+            /*
+            |--------------------------------------------------------------------------
+            | REST FALLBACK
+            |--------------------------------------------------------------------------
+            */
 
-            const response =
-              await fetch(
+            const result =
+              await apiRequest(
                 `${API_BASE_URL}/chat/conversations/${conversation._id}/messages`,
                 {
                   method: 'POST',
@@ -810,16 +1356,17 @@ export default function ParticipantDashboard({
                 }
               );
 
-            const data: SendMessageResponse & {
-              message?: string;
-            } =
-              await response.json();
+            const data =
+              result.data as {
+                message?: ChatMessage;
+                error?: string;
+              };
 
             if (
-              !response.ok
+              !result.response.ok
             ) {
               throw new Error(
-                data.message ||
+                data.error ||
                   'Failed to send message'
               );
             }
@@ -835,8 +1382,10 @@ export default function ParticipantDashboard({
               );
 
               setMessages(
-                (prev) => [
-                  ...prev,
+                (
+                  previous
+                ) => [
+                  ...previous,
                   data.message!,
                 ]
               );
@@ -868,262 +1417,465 @@ export default function ParticipantDashboard({
       ]
     );
 
-  // =========================================================
-  // Upload document
-  // =========================================================
+  /*
+  |--------------------------------------------------------------------------
+  | UPLOAD DOCUMENT
+  |--------------------------------------------------------------------------
+  |
+  | requestId is optional.
+  |
+  | Normal upload:
+  |   file + eventId
+  |
+  | Requested document:
+  |   file + eventId + requestId
+  |
+  */
 
   const uploadFile =
+    useCallback(
+      async (
+        file: File,
+        requestId?: string
+      ) => {
+        try {
+          const token =
+            localStorage.getItem(
+              'token'
+            );
+
+          if (!token) {
+            show(
+              'You are not logged in'
+            );
+            return;
+          }
+
+          const eventId =
+            participantEvent?.event?._id;
+
+          if (!eventId) {
+            show(
+              'No event assigned'
+            );
+            return;
+          }
+
+          /*
+          |--------------------------------------------------------------------------
+          | File type validation
+          |--------------------------------------------------------------------------
+          */
+
+          const allowedTypes = [
+            'application/pdf',
+            'image/jpeg',
+            'image/png',
+          ];
+
+          if (
+            !allowedTypes.includes(
+              file.type
+            )
+          ) {
+            show(
+              'Only PDF, JPG, and PNG files are allowed'
+            );
+            return;
+          }
+
+          /*
+          |--------------------------------------------------------------------------
+          | File size validation
+          |--------------------------------------------------------------------------
+          */
+
+          const maxSize =
+            10 * 1024 * 1024;
+
+          if (
+            file.size > maxSize
+          ) {
+            show(
+              'File size must be less than 10MB'
+            );
+            return;
+          }
+
+          setUploading(
+            true
+          );
+
+          /*
+          |--------------------------------------------------------------------------
+          | FormData
+          |--------------------------------------------------------------------------
+          */
+
+          const formData =
+            new FormData();
+
+          formData.append(
+            'file',
+            file
+          );
+
+          formData.append(
+            'eventId',
+            eventId
+          );
+
+          /*
+          |--------------------------------------------------------------------------
+          | Attach the specific document request
+          |--------------------------------------------------------------------------
+          */
+
+          if (requestId) {
+            formData.append(
+              'requestId',
+              requestId
+            );
+          }
+
+          /*
+          |--------------------------------------------------------------------------
+          | Backend upload
+          |--------------------------------------------------------------------------
+          */
+
+          const result =
+            await apiRequest(
+              `${API_BASE_URL}/documents/upload`,
+              {
+                method: 'POST',
+                headers: {
+                  Authorization:
+                    `Bearer ${token}`,
+                },
+                body: formData,
+              }
+            );
+
+          const data =
+            result.data as {
+              document?: ParticipantDocument;
+              request?: ParticipantDocumentRequest;
+              message?: string;
+            };
+
+          if (
+            !result.response.ok
+          ) {
+            throw new Error(
+              data.message ||
+                'Failed to upload document'
+            );
+          }
+
+          /*
+          |--------------------------------------------------------------------------
+          | Add returned MongoDB document
+          |--------------------------------------------------------------------------
+          */
+
+          if (
+            data.document
+          ) {
+            setDocuments(
+              (
+                previous
+              ) => [
+                data.document!,
+                ...previous,
+              ]
+            );
+          }
+
+          /*
+          |--------------------------------------------------------------------------
+          | Update the matching request
+          |--------------------------------------------------------------------------
+          */
+
+          if (requestId) {
+            setDocumentRequests(
+              (
+                previous
+              ) =>
+                previous.map(
+                  (
+                    request
+                  ) => {
+                    if (
+                      request._id !==
+                      requestId
+                    ) {
+                      return request;
+                    }
+
+                    return {
+                      ...request,
+                      status:
+                        data.request?.status ||
+                        'submitted',
+                      document:
+                        data.document?._id ||
+                        request.document,
+                      updatedAt:
+                        data.request?.updatedAt ||
+                        new Date().toISOString(),
+                    };
+                  }
+                )
+            );
+
+            show(
+              'Requested document submitted successfully'
+            );
+          } else {
+            show(
+              'Document uploaded successfully'
+            );
+          }
+        } catch (err) {
+          console.error(
+            'Document upload error:',
+            err
+          );
+
+          show(
+            err instanceof Error
+              ? err.message
+              : 'Failed to upload document'
+          );
+        } finally {
+          setUploading(
+            false
+          );
+        }
+      },
+      [
+        participantEvent,
+        show,
+      ]
+    );
+
+  // /*
+  // |--------------------------------------------------------------------------
+  // | GENERIC FILE SELECTION
+  // |--------------------------------------------------------------------------
+  // */
+
+  // const handleFileChange =
+  //   async (
+  //     event: ChangeEvent<HTMLInputElement>
+  //   ) => {
+  //     const file =
+  //       event.target.files?.[0];
+
+  //     if (!file) {
+  //       return;
+  //     }
+
+  //     await uploadFile(
+  //       file
+  //     );
+
+  //     event.target.value =
+  //       '';
+  //   };
+
+  /*
+  |--------------------------------------------------------------------------
+  | REQUEST-SPECIFIC FILE SELECTION
+  |--------------------------------------------------------------------------
+  */
+
+  const handleRequestFileChange =
     async (
-      file: File
-    ) => {
-      try {
-        const token =
-          localStorage.getItem(
-            'token'
-          );
-
-        if (!token) {
-          show(
-            'You are not logged in'
-          );
-          return;
-        }
-
-        if (
-          !participantEvent?.event?._id
-        ) {
-          show(
-            'No event assigned'
-          );
-          return;
-        }
-
-        const allowedTypes = [
-          'application/pdf',
-          'image/jpeg',
-          'image/png',
-        ];
-
-        if (
-          !allowedTypes.includes(
-            file.type
-          )
-        ) {
-          show(
-            'Only PDF, JPG, and PNG files are allowed'
-          );
-          return;
-        }
-
-        const maxSize =
-          10 * 1024 * 1024;
-
-        if (
-          file.size > maxSize
-        ) {
-          show(
-            'File size must be less than 10MB'
-          );
-          return;
-        }
-
-        setUploading(
-          true
-        );
-
-        const formData =
-          new FormData();
-
-        formData.append(
-          'file',
-          file
-        );
-
-        formData.append(
-          'eventId',
-          participantEvent.event._id
-        );
-
-        const response =
-          await fetch(
-            `${API_BASE_URL}/documents/upload`,
-            {
-              method: 'POST',
-              headers: {
-                Authorization:
-                  `Bearer ${token}`,
-              },
-              body: formData,
-            }
-          );
-
-        const data =
-          await response.json();
-
-        if (
-          !response.ok
-        ) {
-          throw new Error(
-            data.message ||
-              'Failed to upload document'
-          );
-        }
-
-        setDocuments(
-          (prev) => [
-            data.document,
-            ...prev,
-          ]
-        );
-
-        show(
-          'Document uploaded successfully'
-        );
-      } catch (err) {
-        console.error(
-          'Document upload error:',
-          err
-        );
-
-        show(
-          err instanceof Error
-            ? err.message
-            : 'Failed to upload document'
-        );
-      } finally {
-        setUploading(
-          false
-        );
-      }
-    };
-
-  // =========================================================
-  // File selection
-  // =========================================================
-
-  const handleFileChange =
-    async (
-      e: React.ChangeEvent<HTMLInputElement>
+      requestId: string,
+      event: ChangeEvent<HTMLInputElement>
     ) => {
       const file =
-        e.target.files?.[0];
+        event.target.files?.[0];
 
       if (!file) {
         return;
       }
 
       await uploadFile(
-        file
+        file,
+        requestId
       );
 
-      e.target.value =
+      event.target.value =
         '';
     };
 
-  // =========================================================
-  // Download document
-  // =========================================================
+  /*
+  |--------------------------------------------------------------------------
+  | DOWNLOAD DOCUMENT
+  |--------------------------------------------------------------------------
+  */
 
   const downloadDocument =
-    async (
-      documentId: string,
-      originalName: string
-    ) => {
-      try {
-        const token =
-          localStorage.getItem(
-            'token'
+    useCallback(
+      async (
+        documentId: string,
+        originalName: string
+      ) => {
+        try {
+          const token =
+            localStorage.getItem(
+              'token'
+            );
+
+          if (!token) {
+            show(
+              'You are not logged in'
+            );
+            return;
+          }
+
+          const response =
+            await fetch(
+              `${API_BASE_URL}/documents/${documentId}/download`,
+              {
+                method: 'GET',
+                headers: {
+                  Authorization:
+                    `Bearer ${token}`,
+                },
+              }
+            );
+
+          if (
+            !response.ok
+          ) {
+            let message =
+              'Failed to download document';
+
+            const contentType =
+              response.headers.get(
+                'content-type'
+              ) || '';
+
+            if (
+              contentType.includes(
+                'application/json'
+              )
+            ) {
+              try {
+                const data =
+                  await response.json();
+
+                message =
+                  data.message ||
+                  message;
+              } catch {
+                // Ignore invalid JSON.
+              }
+            }
+
+            throw new Error(
+              message
+            );
+          }
+
+          const blob =
+            await response.blob();
+
+          const url =
+            window.URL.createObjectURL(
+              blob
+            );
+
+          const anchor =
+            document.createElement(
+              'a'
+            );
+
+          anchor.href =
+            url;
+
+          anchor.download =
+            originalName ||
+            'document';
+
+          document.body.appendChild(
+            anchor
           );
 
-        if (!token) {
+          anchor.click();
+
+          anchor.remove();
+
+          window.URL.revokeObjectURL(
+            url
+          );
+        } catch (err) {
+          console.error(
+            'Download document error:',
+            err
+          );
+
           show(
-            'You are not logged in'
+            err instanceof Error
+              ? err.message
+              : 'Failed to download document'
           );
-          return;
         }
+      },
+      [show]
+    );
 
-        const response =
+  /*
+  |--------------------------------------------------------------------------
+  | MARK ANNOUNCEMENT AS READ
+  |--------------------------------------------------------------------------
+  */
+
+  const markAnnouncementAsRead =
+    useCallback(
+      async (
+        announcementId: string
+      ) => {
+        try {
+          const token =
+            localStorage.getItem(
+              'token'
+            );
+
+          if (!token) {
+            return;
+          }
+
           await fetch(
-            `${API_BASE_URL}/documents/${documentId}/download`,
+            `${API_BASE_URL}/announcements/${announcementId}/read`,
             {
-              method: 'GET',
+              method: 'PATCH',
               headers: {
                 Authorization:
                   `Bearer ${token}`,
               },
             }
           );
-
-        if (
-          !response.ok
-        ) {
-          let message =
-            'Failed to download document';
-
-          try {
-            const data =
-              await response.json();
-
-            message =
-              data.message ||
-              message;
-          } catch {
-            // Response was not JSON.
-          }
-
-          throw new Error(
-            message
+        } catch (err) {
+          console.warn(
+            'Unable to mark announcement as read:',
+            err
           );
         }
+      },
+      []
+    );
 
-        const blob =
-          await response.blob();
-
-        const url =
-          window.URL.createObjectURL(
-            blob
-          );
-
-        const anchor =
-          document.createElement(
-            'a'
-          );
-
-        anchor.href =
-          url;
-
-        anchor.download =
-          originalName ||
-          'document';
-
-        document.body.appendChild(
-          anchor
-        );
-
-        anchor.click();
-
-        anchor.remove();
-
-        window.URL.revokeObjectURL(
-          url
-        );
-      } catch (err) {
-        console.error(
-          'Download document error:',
-          err
-        );
-
-        show(
-          err instanceof Error
-            ? err.message
-            : 'Failed to download document'
-        );
-      }
-    };
-
-  // =========================================================
-  // Event information
-  // =========================================================
+  /*
+  |--------------------------------------------------------------------------
+  | EVENT
+  |--------------------------------------------------------------------------
+  */
 
   const event =
     participantEvent?.event;
@@ -1132,32 +1884,70 @@ export default function ParticipantDashboard({
     participantEvent?.status ||
     'pending';
 
-  // =========================================================
-  // Date formatting
-  // =========================================================
+  /*
+  |--------------------------------------------------------------------------
+  | DOCUMENT REQUEST COUNTS
+  |--------------------------------------------------------------------------
+  */
+
+  const pendingDocumentRequests =
+    documentRequests.filter(
+      (
+        request
+      ) =>
+        request.status ===
+        'pending'
+    );
+
+  const pendingDocumentRequestCount =
+    pendingDocumentRequests.length;
+
+  /*
+  |--------------------------------------------------------------------------
+  | DATE FORMAT
+  |--------------------------------------------------------------------------
+  */
 
   const formatDate =
-    (
-      date?: string
-    ) => {
-      if (!date) {
-        return 'Not specified';
-      }
-
-      return new Date(
-        date
-      ).toLocaleDateString(
-        'en-US',
-        {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric',
+    useCallback(
+      (
+        date?: string
+      ) => {
+        if (!date) {
+          return 'Not specified';
         }
-      );
-    };
+
+        const parsedDate =
+          new Date(date);
+
+        if (
+          Number.isNaN(
+            parsedDate.getTime()
+          )
+        ) {
+          return 'Not specified';
+        }
+
+        return parsedDate.toLocaleDateString(
+          'en-US',
+          {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+          }
+        );
+      },
+      []
+    );
+
+  /*
+  |--------------------------------------------------------------------------
+  | DATE RANGE
+  |--------------------------------------------------------------------------
+  */
 
   const formatDateRange =
-    () => {
+    useCallback(() => {
       if (
         !event?.startDate &&
         !event?.endDate
@@ -1187,20 +1977,15 @@ export default function ParticipantDashboard({
           return `${start.toLocaleDateString(
             'en-US',
             {
-              month:
-                'short',
-              day:
-                'numeric',
+              month: 'short',
+              day: 'numeric',
             }
           )}–${end.toLocaleDateString(
             'en-US',
             {
-              month:
-                'short',
-              day:
-                'numeric',
-              year:
-                'numeric',
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
             }
           )}`;
         }
@@ -1216,11 +2001,16 @@ export default function ParticipantDashboard({
         event.startDate ||
           event.endDate
       );
-    };
+    }, [
+      event,
+      formatDate,
+    ]);
 
-  // =========================================================
-  // Navigation items
-  // =========================================================
+  /*
+  |--------------------------------------------------------------------------
+  | NAVIGATION
+  |--------------------------------------------------------------------------
+  */
 
   const navItems = [
     {
@@ -1241,9 +2031,11 @@ export default function ParticipantDashboard({
     },
   ];
 
-  // =========================================================
-  // Registration progress
-  // =========================================================
+  /*
+  |--------------------------------------------------------------------------
+  | REGISTRATION PROGRESS
+  |--------------------------------------------------------------------------
+  */
 
   const progress = [
     {
@@ -1252,25 +2044,31 @@ export default function ParticipantDashboard({
         registrationStatus ===
         'registered',
     },
+
     {
       label: 'Email Confirmed',
       done: true,
     },
+
     {
       label: 'Documents Uploaded',
       done:
         documents.length > 0,
     },
+
     {
       label: 'Documents Approved',
       done:
         documents.length > 0 &&
         documents.every(
-          (doc) =>
+          (
+            doc
+          ) =>
             doc.status ===
             'approved'
         ),
     },
+
     {
       label: 'Check-in Ready',
       done:
@@ -1281,96 +2079,129 @@ export default function ParticipantDashboard({
 
   const nextProgressIndex =
     progress.findIndex(
-      (p) => !p.done
+      (
+        item
+      ) => !item.done
     );
 
-  // =========================================================
-  // Enabled modules
-  // =========================================================
+  /*
+  |--------------------------------------------------------------------------
+  | ENABLED MODULES
+  |--------------------------------------------------------------------------
+  */
 
-  const enabledModules =
-    useMemo(() => {
-      if (
-        !event?.modules
-      ) {
-        return [];
-      }
+  // const enabledModules =
+  //   useMemo(() => {
+  //     if (
+  //       !event?.modules
+  //     ) {
+  //       return [];
+  //     }
 
-      const moduleLabels:
-        Record<
-          string,
-          string
-        > = {
-        participants:
-          'Participants',
-        registration:
-          'Registration',
-        schedule:
-          'Schedule',
-        documents:
-          'Documents',
-        announcements:
-          'Announcements',
-        chat:
-          'Chat',
-        accommodation:
-          'Accommodation',
-        travel:
-          'Travel',
-      };
+  //     const moduleLabels: Record<
+  //       string,
+  //       string
+  //     > = {
+  //       participants:
+  //         'Participants',
 
-      return Object.entries(
-        event.modules
-      )
-        .filter(
-          ([, enabled]) =>
-            enabled
-        )
-        .map(
-          ([key]) =>
-            moduleLabels[
-              key
-            ] || key
-        );
-    }, [event]);
+  //       registration:
+  //         'Registration',
 
-  // =========================================================
-  // Loading
-  // =========================================================
+  //       schedule:
+  //         'Schedule',
+
+  //       documents:
+  //         'Documents',
+
+  //       announcements:
+  //         'Announcements',
+
+  //       chat:
+  //         'Chat',
+
+  //       accommodation:
+  //         'Accommodation',
+
+  //       travel:
+  //         'Travel',
+  //     };
+
+  //     return Object.entries(
+  //       event.modules
+  //     )
+  //       .filter(
+  //         (
+  //           [, enabled]
+  //         ) => enabled
+  //       )
+  //       .map(
+  //         (
+  //           [key]
+  //         ) =>
+  //           moduleLabels[
+  //             key
+  //           ] || key
+  //       );
+  //   }, [event]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | LATEST ANNOUNCEMENT
+  |--------------------------------------------------------------------------
+  */
+
+  const latestAnnouncement =
+    announcements[0] ||
+    null;
+
+  /*
+  |--------------------------------------------------------------------------
+  | LOADING
+  |--------------------------------------------------------------------------
+  */
 
   if (loading) {
     return (
       <div className="min-h-screen bg-[#FAFAF7] flex items-center justify-center">
         <div className="text-center">
+
           <div className="w-10 h-10 border-4 border-[#EEF2FF] border-t-[#5B6FD4] rounded-full animate-spin mx-auto mb-4" />
 
           <p className="text-sm text-[#5A5A72]">
             Loading your event...
           </p>
+
         </div>
       </div>
     );
   }
 
-  // =========================================================
-  // Error
-  // =========================================================
+  /*
+  |--------------------------------------------------------------------------
+  | ERROR
+  |--------------------------------------------------------------------------
+  */
 
   if (error) {
     return (
       <div className="min-h-screen bg-[#FAFAF7] flex items-center justify-center px-6">
+
         <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-8 max-w-md w-full text-center">
+
           <div className="w-12 h-12 bg-[#FEF3ED] rounded-full flex items-center justify-center mx-auto mb-4">
+
             <span className="text-[#D95B5B] text-xl">
               !
             </span>
+
           </div>
 
           <h2 className="font-semibold text-[#1A1A2E] text-lg mb-2">
             Unable to load your event
           </h2>
 
-          <p className="text-sm text-[#9090A8] mb-6">
+          <p className="text-sm text-[#9090A8] mb-6 break-words">
             {error}
           </p>
 
@@ -1380,14 +2211,18 @@ export default function ParticipantDashboard({
           >
             Back to Login
           </button>
+
         </div>
+
       </div>
     );
   }
 
-  // =========================================================
-  // No event
-  // =========================================================
+  /*
+  |--------------------------------------------------------------------------
+  | NO EVENT
+  |--------------------------------------------------------------------------
+  */
 
   if (
     !participantEvent ||
@@ -1395,18 +2230,25 @@ export default function ParticipantDashboard({
   ) {
     return (
       <div className="min-h-screen bg-[#FAFAF7]">
+
         <nav className="bg-white border-b border-[#E8E8F0]">
+
           <div className="max-w-4xl mx-auto px-6 h-14 flex items-center justify-between">
+
             <div className="flex items-center gap-3">
+
               <div className="w-7 h-7 rounded-lg gradient-primary flex items-center justify-center">
+
                 <span className="text-white text-xs font-bold">
                   E
                 </span>
+
               </div>
 
               <span className="font-display text-lg text-[#1A1A2E]">
                 Evently
               </span>
+
             </div>
 
             <button
@@ -1415,15 +2257,21 @@ export default function ParticipantDashboard({
             >
               Sign out
             </button>
+
           </div>
+
         </nav>
 
         <div className="max-w-4xl mx-auto px-6 py-16">
+
           <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-10 text-center">
+
             <div className="w-14 h-14 bg-[#EEF2FF] rounded-2xl flex items-center justify-center mx-auto mb-4">
+
               <span className="text-[#5B6FD4] text-xl">
                 E
               </span>
+
             </div>
 
             <h2 className="font-display text-2xl text-[#1A1A2E] mb-2">
@@ -1436,21 +2284,26 @@ export default function ParticipantDashboard({
               currently associated with
               an event.
             </p>
+
           </div>
+
         </div>
+
       </div>
     );
   }
 
-  // =========================================================
-  // Main dashboard
-  // =========================================================
+  /*
+  |--------------------------------------------------------------------------
+  | MAIN DASHBOARD
+  |--------------------------------------------------------------------------
+  */
 
   return (
     <div className="min-h-full bg-[#FAFAF7]">
 
       {/* =====================================================
-          Notification
+          NOTIFICATION
       ====================================================== */}
 
       {notification && (
@@ -1460,18 +2313,21 @@ export default function ParticipantDashboard({
       )}
 
       {/* =====================================================
-          Top navigation
+          TOP NAVIGATION
       ====================================================== */}
 
       <nav className="bg-white border-b border-[#E8E8F0] sticky top-0 z-40">
+
         <div className="max-w-4xl mx-auto px-6 h-14 flex items-center justify-between">
 
           <div className="flex items-center gap-3">
 
             <div className="w-7 h-7 rounded-lg gradient-primary flex items-center justify-center">
+
               <span className="text-white text-xs font-bold">
                 E
               </span>
+
             </div>
 
             <span className="font-display text-lg text-[#1A1A2E]">
@@ -1508,12 +2364,13 @@ export default function ParticipantDashboard({
           </div>
 
         </div>
+
       </nav>
 
       <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
 
         {/* ===================================================
-            Hero
+            HERO
         ==================================================== */}
 
         <div className="gradient-primary rounded-2xl p-6 text-white shadow-card">
@@ -1570,46 +2427,78 @@ export default function ParticipantDashboard({
             </div>
 
           </div>
+
         </div>
 
         {/* ===================================================
-            Tabs
+            TABS
         ==================================================== */}
 
         <div className="flex gap-1 bg-white rounded-xl p-1 border border-[#E8E8F0] shadow-soft w-fit">
 
           {navItems.map(
-            (t) => (
+            (
+              tab
+            ) => (
               <button
-                key={t.id}
+                key={
+                  tab.id
+                }
                 onClick={() =>
                   setActiveTab(
-                    t.id as typeof activeTab
+                    tab.id as typeof activeTab
                   )
                 }
                 className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${
                   activeTab ===
-                  t.id
+                  tab.id
                     ? 'bg-[#5B6FD4] text-white shadow-sm'
                     : 'text-[#9090A8] hover:text-[#5A5A72]'
                 }`}
               >
-                {t.label}
+                {tab.id ===
+                'documents' ? (
+                  <span className="flex items-center gap-2">
+
+                    <span>
+                      {tab.label}
+                    </span>
+
+                    {pendingDocumentRequestCount >
+                      0 && (
+                      <span
+                        className={`min-w-5 h-5 px-1.5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                          activeTab ===
+                          tab.id
+                            ? 'bg-white text-[#5B6FD4]'
+                            : 'bg-[#D95B5B] text-white'
+                        }`}
+                      >
+                        {
+                          pendingDocumentRequestCount
+                        }
+                      </span>
+                    )}
+
+                  </span>
+                ) : (
+                  tab.label
+                )}
               </button>
             )
           )}
 
         </div>
 
-        {/* =====================================================
+        {/* ===================================================
             HOME
-        ====================================================== */}
+        ==================================================== */}
 
         {activeTab ===
           'home' && (
           <div className="space-y-5">
 
-            {/* Registration progress */}
+            {/* Registration Progress */}
 
             <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-6">
 
@@ -1621,32 +2510,32 @@ export default function ParticipantDashboard({
 
                 {progress.map(
                   (
-                    p,
-                    i
+                    item,
+                    index
                   ) => (
                     <div
                       key={
-                        p.label
+                        item.label
                       }
                       className="flex items-center gap-3"
                     >
 
                       <div
                         className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${
-                          p.done
+                          item.done
                             ? 'bg-[#3D9E8C]'
-                            : i ===
+                            : index ===
                               nextProgressIndex
                             ? 'bg-[#EEF2FF] border-2 border-[#5B6FD4]'
                             : 'bg-[#F0F0F8]'
                         }`}
                       >
 
-                        {p.done ? (
+                        {item.done ? (
                           <span className="text-white text-xs font-bold">
                             ✓
                           </span>
-                        ) : i ===
+                        ) : index ===
                           nextProgressIndex ? (
                           <span className="text-[#5B6FD4] text-xs font-bold">
                             →
@@ -1659,18 +2548,18 @@ export default function ParticipantDashboard({
 
                       <span
                         className={`text-sm ${
-                          p.done
+                          item.done
                             ? 'text-[#1A1A2E] font-medium'
                             : 'text-[#9090A8]'
                         }`}
                       >
                         {
-                          p.label
+                          item.label
                         }
                       </span>
 
-                      {!p.done &&
-                        i ===
+                      {!item.done &&
+                        index ===
                           nextProgressIndex && (
                           <span className="text-xs bg-[#EEF2FF] text-[#5B6FD4] px-2 py-0.5 rounded-full font-medium ml-auto">
                             Next
@@ -1685,7 +2574,7 @@ export default function ParticipantDashboard({
 
             </div>
 
-            {/* Info cards */}
+            {/* Details */}
 
             <div className="grid sm:grid-cols-2 gap-4">
 
@@ -1699,49 +2588,58 @@ export default function ParticipantDashboard({
 
                   {[
                     {
-                      l: 'Name',
-                      v:
+                      label: 'Name',
+                      value:
                         participant?.name ||
                         '—',
                     },
                     {
-                      l: 'Role',
-                      v:
+                      label: 'Role',
+                      value:
                         participant?.role ||
                         'Participant',
                     },
                     {
-                      l: 'Email',
-                      v:
+                      label: 'Email',
+                      value:
                         participant?.email ||
                         '—',
                     },
                     {
-                      l: 'Event',
-                      v:
+                      label: 'Event',
+                      value:
                         event.name ||
                         '—',
                     },
                   ].map(
-                    (f) => (
+                    (
+                      field
+                    ) => (
                       <div
                         key={
-                          f.l
+                          field.label
                         }
                         className="flex justify-between text-sm gap-4"
                       >
+
                         <span className="text-[#9090A8]">
-                          {f.l}
+                          {
+                            field.label
+                          }
                         </span>
 
                         <span className="text-[#1A1A2E] font-medium text-right break-all">
-                          {f.v}
+                          {
+                            field.value
+                          }
                         </span>
+
                       </div>
                     )
                   )}
 
                 </div>
+
               </div>
 
               <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-5">
@@ -1795,12 +2693,13 @@ export default function ParticipantDashboard({
                   </div>
 
                 </div>
+
               </div>
 
             </div>
 
-            {/* Enabled modules */}
-
+            {/* Enabled Modules */}
+{/* 
             {enabledModules.length >
               0 && (
               <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-5">
@@ -1814,7 +2713,7 @@ export default function ParticipantDashboard({
                   {enabledModules.map(
                     (
                       module
-                    ) => (
+                  ) => (
                       <span
                         key={
                           module
@@ -1829,11 +2728,151 @@ export default function ParticipantDashboard({
                   )}
 
                 </div>
+
               </div>
-            )}
+            )} */}
 
-            {/* Document status */}
+            {/* =================================================
+                DOCUMENT REQUESTS
+            ================================================== */}
 
+            {/* <div
+              className={`bg-white rounded-2xl border shadow-soft p-5 ${
+                pendingDocumentRequestCount >
+                0
+                  ? 'border-[#F3C5B3]'
+                  : 'border-[#E8E8F0]'
+              }`}
+            >
+
+              <div className="flex items-center justify-between mb-3">
+
+                <div>
+
+                  <h3 className="font-semibold text-[#1A1A2E] text-sm">
+                    Document Requests
+                  </h3>
+
+                  <p className="text-xs text-[#9090A8] mt-1">
+                    Documents requested by your event administrator.
+                  </p>
+
+                </div>
+
+                {pendingDocumentRequestCount >
+                  0 && (
+                  <span className="bg-[#FEF3ED] text-[#E8824A] px-2.5 py-1 rounded-full text-xs font-semibold">
+                    {pendingDocumentRequestCount}{' '}
+                    pending
+                  </span>
+                )}
+
+              </div>
+
+              {documentRequests.length ===
+              0 ? (
+                <div className="text-center py-4">
+
+                  <p className="text-sm text-[#9090A8]">
+                    No document requests yet.
+                  </p>
+
+                </div>
+              ) : (
+                <div className="space-y-3">
+
+                  {documentRequests
+                    .filter(
+                      (
+                        request
+                      ) =>
+                        request.status ===
+                          'pending' ||
+                        request.status ===
+                          'rejected'
+                    )
+                    .slice(0, 3)
+                    .map(
+                      (
+                        request
+                      ) => (
+                        <div
+                          key={
+                            request._id
+                          }
+                          className="rounded-xl bg-[#FAFAF7] border border-[#E8E8F0] p-4"
+                        >
+
+                          <div className="flex items-start justify-between gap-3">
+
+                            <div className="min-w-0">
+
+                              <p className="text-sm font-semibold text-[#1A1A2E]">
+                                {
+                                  request.documentName
+                                }
+                              </p>
+
+                              {request.description && (
+                                <p className="text-xs text-[#5A5A72] mt-1">
+                                  {
+                                    request.description
+                                  }
+                                </p>
+                              )}
+
+                              <p className="text-xs text-[#9090A8] mt-2">
+                                Deadline:{' '}
+                                <span className="font-medium text-[#5A5A72]">
+                                  {formatDate(
+                                    request.deadline
+                                  )}
+                                </span>
+                              </p>
+
+                            </div>
+
+                            <span
+                              className={`text-xs px-2 py-1 rounded-full font-medium shrink-0 ${
+                                request.status ===
+                                'rejected'
+                                  ? 'bg-[#FDECEC] text-[#D95B5B]'
+                                  : 'bg-[#FEF3ED] text-[#E8824A]'
+                              }`}
+                            >
+                              {request.status ===
+                              'rejected'
+                                ? 'Rejected'
+                                : 'Pending'}
+                            </span>
+
+                          </div>
+
+                        </div>
+                      )
+                    )}
+
+                  {pendingDocumentRequestCount >
+                    0 && (
+                    <button
+                      onClick={() =>
+                        setActiveTab(
+                          'documents'
+                        )
+                      }
+                      className="text-xs text-[#5B6FD4] font-medium hover:underline"
+                    >
+                      View and upload requested documents →
+                    </button>
+                  )}
+
+                </div>
+              )}
+
+            </div> */}
+
+            {/* Document Status */}
+{/* 
             <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-5">
 
               <h3 className="font-semibold text-[#1A1A2E] mb-3 text-sm">
@@ -1865,36 +2904,36 @@ export default function ParticipantDashboard({
 
                   {documents.map(
                     (
-                      d
+                      doc
                     ) => (
                       <div
                         key={
-                          d._id
+                          doc._id
                         }
                         className="flex items-center justify-between text-sm gap-3"
                       >
 
                         <span className="text-[#5A5A72] truncate">
-                          {
-                            d.name
-                          }
+                          {doc.name ||
+                            doc.originalName ||
+                            'Document'}
                         </span>
 
                         <span
                           className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${
-                            d.status ===
+                            doc.status ===
                             'approved'
                               ? 'bg-[#E6F4F1] text-[#3D9E8C]'
-                              : d.status ===
+                              : doc.status ===
                                 'rejected'
                               ? 'bg-[#FDECEC] text-[#D95B5B]'
                               : 'bg-[#FEF3ED] text-[#E8824A]'
                           }`}
                         >
-                          {d.status ===
+                          {doc.status ===
                           'approved'
                             ? 'Approved'
-                            : d.status ===
+                            : doc.status ===
                               'rejected'
                             ? 'Rejected'
                             : 'Pending Review'}
@@ -1907,11 +2946,11 @@ export default function ParticipantDashboard({
                 </div>
               )}
 
-            </div>
+            </div> */}
 
-            {/* Latest announcement */}
+            {/* Latest Announcement */}
 
-            {mockAnnouncements[0] && (
+            {latestAnnouncement && (
               <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-5">
 
                 <div className="flex items-center justify-between mb-3">
@@ -1935,30 +2974,19 @@ export default function ParticipantDashboard({
 
                 <p className="font-medium text-sm text-[#1A1A2E] mb-1">
                   {
-                    mockAnnouncements[0]
-                      .title
+                    latestAnnouncement.title
                   }
                 </p>
 
                 <p className="text-xs text-[#5A5A72] leading-relaxed line-clamp-2">
                   {
-                    mockAnnouncements[0]
-                      .content
+                    latestAnnouncement.content
                   }
                 </p>
 
                 <p className="text-xs text-[#9090A8] mt-2">
-                  {new Date(
-                    mockAnnouncements[0]
-                      .sentAt
-                  ).toLocaleDateString(
-                    'en-US',
-                    {
-                      month:
-                        'short',
-                      day:
-                        'numeric',
-                    }
+                  {formatDate(
+                    latestAnnouncement.createdAt
                   )}
                 </p>
 
@@ -2016,28 +3044,341 @@ export default function ParticipantDashboard({
           </div>
         )}
 
-        {/* =====================================================
+        {/* ===================================================
             DOCUMENTS
-        ====================================================== */}
+        ==================================================== */}
 
         {activeTab ===
           'documents' && (
           <div className="space-y-4">
 
-            <div className="bg-[#FEF3ED] border border-[#E8C49C] rounded-2xl p-4 flex gap-3">
+            {/* Document information */}
 
-              <span className="text-[#E8824A]">
-                ⚠
+            {/* <div className="bg-[#EEF2FF] border border-[#D9DEFA] rounded-2xl p-4 flex gap-3">
+
+              <span className="text-[#5B6FD4]">
+                ℹ
               </span>
 
-              <p className="text-sm text-[#E8824A]">
-                Please upload all required
-                documents before{' '}
-                <strong>
-                  September 30, 2026
-                </strong>
-                .
-              </p>
+              <div>
+
+                <p className="text-sm font-medium text-[#5B6FD4]">
+                  Document Submission
+                </p>
+
+                <p className="text-xs text-[#5A5A72] mt-1">
+                  Upload the documents requested
+                  by your event administrator.
+                  Supported formats are PDF,
+                  JPG and PNG, up to 10MB.
+                </p>
+
+              </div>
+
+            </div> */}
+
+            {/* =================================================
+                REQUESTED DOCUMENTS
+            ================================================== */}
+
+            <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-5">
+
+              <div className="flex items-center justify-between mb-4">
+
+                <div>
+
+                  <h3 className="font-semibold text-[#1A1A2E]">
+                    Document Requests
+                  </h3>
+
+                  <p className="text-xs text-[#9090A8] mt-1">
+                    Upload each document requested by the event administrator.
+                  </p>
+
+                </div>
+
+                {pendingDocumentRequestCount >
+                  0 && (
+                  <span className="bg-[#FEF3ED] text-[#E8824A] px-2.5 py-1 rounded-full text-xs font-semibold">
+                    {pendingDocumentRequestCount}{' '}
+                    pending
+                  </span>
+                )}
+
+              </div>
+
+              {documentRequests.length ===
+              0 ? (
+                <div className="py-8 text-center">
+
+                  <div className="w-12 h-12 bg-[#F3F2EC] rounded-xl flex items-center justify-center mx-auto mb-3">
+
+                    <svg
+                      className="w-6 h-6 text-[#9090A8]"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                      />
+                    </svg>
+
+                  </div>
+
+                  <p className="text-sm text-[#9090A8]">
+                    No document requests yet.
+                  </p>
+
+                </div>
+              ) : (
+                <div className="space-y-3">
+
+                  {documentRequests.map(
+                    (
+                      request
+                    ) => {
+
+                      const isPending =
+                        request.status ===
+                        'pending';
+
+                      const isRejected =
+                        request.status ===
+                        'rejected';
+
+                      const isSubmitted =
+                        request.status ===
+                        'submitted';
+
+                      const isApproved =
+                        request.status ===
+                        'approved';
+
+                      return (
+                        <div
+                          key={
+                            request._id
+                          }
+                          className={`rounded-xl border p-4 ${
+                            isPending
+                              ? 'border-[#F3C5B3] bg-[#FFF9F6]'
+                              : isRejected
+                              ? 'border-[#F2C4C4] bg-[#FFF8F8]'
+                              : isApproved
+                              ? 'border-[#CBE8E2] bg-[#F7FCFA]'
+                              : 'border-[#E8E8F0] bg-[#FAFAF7]'
+                          }`}
+                        >
+
+                          <div className="flex items-start justify-between gap-4">
+
+                            <div className="min-w-0 flex-1">
+
+                              <div className="flex items-center gap-2 flex-wrap">
+
+                                <h4 className="font-semibold text-[#1A1A2E] text-sm">
+                                  {
+                                    request.documentName
+                                  }
+                                </h4>
+
+                                {request.required && (
+                                  <span className="text-[10px] bg-[#FDECEC] text-[#D95B5B] px-2 py-0.5 rounded-full font-semibold">
+                                    Required
+                                  </span>
+                                )}
+
+                                {!request.required && (
+                                  <span className="text-[10px] bg-[#F3F2EC] text-[#9090A8] px-2 py-0.5 rounded-full font-medium">
+                                    Optional
+                                  </span>
+                                )}
+
+                              </div>
+
+                              {request.description && (
+                                <p className="text-xs text-[#5A5A72] mt-2 leading-relaxed">
+                                  {
+                                    request.description
+                                  }
+                                </p>
+                              )}
+
+                              <p className="text-xs text-[#9090A8] mt-2">
+
+                                Deadline:{' '}
+
+                                <span className="font-medium text-[#5A5A72]">
+                                  {formatDate(
+                                    request.deadline
+                                  )}
+                                </span>
+
+                              </p>
+
+                            </div>
+
+                            <span
+                              className={`text-xs px-2.5 py-1 rounded-full font-medium shrink-0 ${
+                                isApproved
+                                  ? 'bg-[#E6F4F1] text-[#3D9E8C]'
+                                  : isRejected
+                                  ? 'bg-[#FDECEC] text-[#D95B5B]'
+                                  : isSubmitted
+                                  ? 'bg-[#EEF2FF] text-[#5B6FD4]'
+                                  : 'bg-[#FEF3ED] text-[#E8824A]'
+                              }`}
+                            >
+                              {isApproved
+                                ? 'Approved'
+                                : isRejected
+                                ? 'Rejected'
+                                : isSubmitted
+                                ? 'Submitted'
+                                : 'Pending'}
+                            </span>
+
+                          </div>
+
+                          {/* Pending upload */}
+
+                          {(isPending ||
+                            isRejected) && (
+                            <div className="mt-4 pt-4 border-t border-[#E8E8F0]">
+
+                              {isRejected && (
+                                <p className="text-xs text-[#D95B5B] mb-3">
+                                  Your previous submission was rejected. Please upload the document again.
+                                </p>
+                              )}
+
+                              <label
+                                className={`w-full border-2 border-dashed border-[#D0D0E8] rounded-xl p-5 text-center hover:border-[#5B6FD4] transition-colors bg-white block ${
+                                  uploading
+                                    ? 'opacity-60 cursor-not-allowed'
+                                    : 'cursor-pointer'
+                                }`}
+                              >
+
+                                <input
+                                  type="file"
+                                  accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                                  className="hidden"
+                                  disabled={
+                                    uploading
+                                  }
+                                  onChange={(
+                                    event
+                                  ) =>
+                                    void handleRequestFileChange(
+                                      request._id,
+                                      event
+                                    )
+                                  }
+                                />
+
+                                <div className="w-9 h-9 bg-[#EEF2FF] rounded-lg flex items-center justify-center mx-auto mb-2">
+
+                                  {uploading ? (
+                                    <div className="w-5 h-5 border-2 border-[#D0D0E8] border-t-[#5B6FD4] rounded-full animate-spin" />
+                                  ) : (
+                                    <svg
+                                      className="w-5 h-5 text-[#5B6FD4]"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M12 4v16m8-8H4"
+                                      />
+                                    </svg>
+                                  )}
+
+                                </div>
+
+                                <p className="text-sm font-medium text-[#1A1A2E]">
+                                  {uploading
+                                    ? 'Uploading...'
+                                    : isRejected
+                                    ? 'Upload again'
+                                    : 'Upload requested document'}
+                                </p>
+
+                                <p className="text-xs text-[#9090A8] mt-1">
+                                  PDF, JPG, PNG up to 10MB
+                                </p>
+
+                              </label>
+
+                            </div>
+                          )}
+
+                          {/* Submitted */}
+
+                          {isSubmitted && (
+                            <div className="mt-4 pt-4 border-t border-[#E8E8F0]">
+
+                              <div className="flex items-center gap-2 text-sm text-[#5B6FD4]">
+
+                                <span className="w-6 h-6 rounded-full bg-[#EEF2FF] flex items-center justify-center">
+                                  ✓
+                                </span>
+
+                                <span>
+                                  Document submitted — awaiting administrator review.
+                                </span>
+
+                              </div>
+
+                            </div>
+                          )}
+
+                          {/* Approved */}
+
+                          {isApproved && (
+                            <div className="mt-4 pt-4 border-t border-[#E8E8F0]">
+
+                              <div className="flex items-center gap-2 text-sm text-[#3D9E8C]">
+
+                                <span className="w-6 h-6 rounded-full bg-[#E6F4F1] flex items-center justify-center">
+                                  ✓
+                                </span>
+
+                                <span>
+                                  Document approved by the administrator.
+                                </span>
+
+                              </div>
+
+                            </div>
+                          )}
+
+                        </div>
+                      );
+                    }
+                  )}
+
+                </div>
+              )}
+
+            </div>
+
+            {/* =================================================
+                EXISTING DOCUMENTS
+            ================================================== */}
+
+            <div className="pt-2">
+
+              <h3 className="font-semibold text-[#1A1A2E] mb-3">
+                Uploaded Documents
+              </h3>
 
             </div>
 
@@ -2046,91 +3387,110 @@ export default function ParticipantDashboard({
               documents.map(
                 (
                   doc
-                ) => (
-                  <div
-                    key={
-                      doc._id
-                    }
-                    className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-5 flex items-center gap-4"
-                  >
+                ) => {
+                  const displayName =
+                    doc.originalName ||
+                    doc.name ||
+                    doc.filename ||
+                    'Document';
 
-                    <div className="w-10 h-10 bg-[#EEF2FF] rounded-xl flex items-center justify-center shrink-0">
-
-                      <svg
-                        className="w-5 h-5 text-[#5B6FD4]"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                        />
-                      </svg>
-
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-
-                      <p className="font-medium text-[#1A1A2E] text-sm truncate">
-                        {
-                          doc.name
-                        }
-                      </p>
-
-                      <p className="text-xs text-[#9090A8]">
-                        {(
+                  const fileSize =
+                    typeof doc.size ===
+                    'number'
+                      ? (
                           doc.size /
                           1024 /
                           1024
-                        ).toFixed(
-                          2
-                        )}{' '}
-                        MB ·{' '}
-                        {new Date(
-                          doc.createdAt
-                        ).toLocaleDateString()}
-                      </p>
+                        ).toFixed(2)
+                      : '—';
 
-                    </div>
+                  return (
+                    <div
+                      key={
+                        doc._id
+                      }
+                      className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-5 flex items-center gap-4"
+                    >
 
-                    <span
-                      className={`text-xs px-2.5 py-1 rounded-full font-medium shrink-0 ${
-                        doc.status ===
+                      {/* File icon */}
+
+                      <div className="w-10 h-10 bg-[#EEF2FF] rounded-xl flex items-center justify-center shrink-0">
+
+                        <svg
+                          className="w-5 h-5 text-[#5B6FD4]"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                          />
+                        </svg>
+
+                      </div>
+
+                      {/* File information */}
+
+                      <div className="flex-1 min-w-0">
+
+                        <p className="font-medium text-[#1A1A2E] text-sm truncate">
+                          {
+                            displayName
+                          }
+                        </p>
+
+                        <p className="text-xs text-[#9090A8]">
+                          {fileSize}{' '}
+                          MB ·{' '}
+                          {formatDate(
+                            doc.createdAt
+                          )}
+                        </p>
+
+                      </div>
+
+                      {/* Status */}
+
+                      <span
+                        className={`text-xs px-2.5 py-1 rounded-full font-medium shrink-0 ${
+                          doc.status ===
+                          'approved'
+                            ? 'bg-[#E6F4F1] text-[#3D9E8C]'
+                            : doc.status ===
+                              'rejected'
+                            ? 'bg-[#FDECEC] text-[#D95B5B]'
+                            : 'bg-[#FEF3ED] text-[#E8824A]'
+                        }`}
+                      >
+                        {doc.status ===
                         'approved'
-                          ? 'bg-[#E6F4F1] text-[#3D9E8C]'
+                          ? 'Approved'
                           : doc.status ===
                             'rejected'
-                          ? 'bg-[#FDECEC] text-[#D95B5B]'
-                          : 'bg-[#FEF3ED] text-[#E8824A]'
-                      }`}
-                    >
-                      {doc.status ===
-                      'approved'
-                        ? 'Approved'
-                        : doc.status ===
-                          'rejected'
-                        ? 'Rejected'
-                        : 'Pending Review'}
-                    </span>
+                          ? 'Rejected'
+                          : 'Pending Review'}
+                      </span>
 
-                    <button
-                      onClick={() =>
-                        void downloadDocument(
-                          doc._id,
-                          doc.originalName ||
-                            doc.name
-                        )
-                      }
-                      className="text-xs bg-[#EEF2FF] text-[#5B6FD4] px-3 py-1.5 rounded-lg font-medium hover:opacity-80 transition-opacity shrink-0"
-                    >
-                      Download
-                    </button>
+                      {/* Download */}
 
-                  </div>
-                )
+                      <button
+                        onClick={() =>
+                          void downloadDocument(
+                            doc._id,
+                            displayName
+                          )
+                        }
+                        className="text-xs bg-[#EEF2FF] text-[#5B6FD4] px-3 py-1.5 rounded-lg font-medium hover:opacity-80 transition-opacity shrink-0"
+                      >
+                        Download
+                      </button>
+
+                    </div>
+                  );
+                }
               )
             ) : (
               <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-8 text-center">
@@ -2147,7 +3507,7 @@ export default function ParticipantDashboard({
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth={2}
-                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                     />
                   </svg>
 
@@ -2160,8 +3520,18 @@ export default function ParticipantDashboard({
               </div>
             )}
 
-            {/* Upload */}
+            {/* =================================================
+                GENERIC UPLOAD
+            ================================================== */}
 
+            {/* <div className="pt-2">
+
+              <h3 className="font-semibold text-[#1A1A2E] mb-3">
+                Upload Other Document
+              </h3>
+
+            </div> */}
+{/* 
             <label
               className={`w-full border-2 border-dashed border-[#D0D0E8] rounded-2xl p-8 text-center hover:border-[#5B6FD4] transition-colors bg-white block ${
                 uploading
@@ -2172,7 +3542,7 @@ export default function ParticipantDashboard({
 
               <input
                 type="file"
-                accept=".pdf,.jpg,.jpeg,.png"
+                accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
                 className="hidden"
                 disabled={
                   uploading
@@ -2214,92 +3584,123 @@ export default function ParticipantDashboard({
                 PDF, JPG, PNG up to 10MB
               </p>
 
-            </label>
+            </label> */}
 
           </div>
         )}
 
-        {/* =====================================================
+        {/* ===================================================
             ANNOUNCEMENTS
-        ====================================================== */}
+        ==================================================== */}
 
         {activeTab ===
           'announcements' && (
           <div className="space-y-4">
 
-            {mockAnnouncements.map(
-              (a) => (
-                <div
-                  key={
-                    a.id
-                  }
-                  className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-6"
-                >
+            {announcements.length ===
+            0 ? (
+              <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-10 text-center">
 
-                  <div className="flex items-start gap-3 mb-2">
+                <div className="w-12 h-12 bg-[#EEF2FF] rounded-xl flex items-center justify-center mx-auto mb-3">
 
-                    <div className="w-8 h-8 bg-[#EEF2FF] rounded-xl flex items-center justify-center shrink-0">
-
-                      <svg
-                        className="w-4 h-4 text-[#5B6FD4]"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"
-                        />
-                      </svg>
-
-                    </div>
-
-                    <div>
-
-                      <p className="font-semibold text-[#1A1A2E]">
-                        {
-                          a.title
-                        }
-                      </p>
-
-                      <p className="text-xs text-[#9090A8] mt-0.5">
-                        {new Date(
-                          a.sentAt
-                        ).toLocaleDateString(
-                          'en-US',
-                          {
-                            month:
-                              'long',
-                            day:
-                              'numeric',
-                            year:
-                              'numeric',
-                          }
-                        )}
-                      </p>
-
-                    </div>
-
-                  </div>
-
-                  <p className="text-sm text-[#5A5A72] leading-relaxed ml-11">
-                    {
-                      a.content
-                    }
-                  </p>
+                  <svg
+                    className="w-6 h-6 text-[#5B6FD4]"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"
+                    />
+                  </svg>
 
                 </div>
+
+                <p className="text-sm font-medium text-[#1A1A2E]">
+                  No announcements yet
+                </p>
+
+                <p className="text-xs text-[#9090A8] mt-1">
+                  Event announcements from the
+                  administrator will appear here.
+                </p>
+
+              </div>
+            ) : (
+              announcements.map(
+                (
+                  announcement
+                ) => (
+                  <div
+                    key={
+                      announcement._id
+                    }
+                    className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-6"
+                    onMouseEnter={() => {
+                      void markAnnouncementAsRead(
+                        announcement._id
+                      );
+                    }}
+                  >
+
+                    <div className="flex items-start gap-3 mb-2">
+
+                      <div className="w-8 h-8 bg-[#EEF2FF] rounded-xl flex items-center justify-center shrink-0">
+
+                        <svg
+                          className="w-4 h-4 text-[#5B6FD4]"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"
+                          />
+                        </svg>
+
+                      </div>
+
+                      <div>
+
+                        <p className="font-semibold text-[#1A1A2E]">
+                          {
+                            announcement.title
+                          }
+                        </p>
+
+                        <p className="text-xs text-[#9090A8] mt-0.5">
+                          {formatDate(
+                            announcement.createdAt
+                          )}
+                        </p>
+
+                      </div>
+
+                    </div>
+
+                    <p className="text-sm text-[#5A5A72] leading-relaxed ml-11">
+                      {
+                        announcement.content
+                      }
+                    </p>
+
+                  </div>
+                )
               )
             )}
 
           </div>
         )}
 
-        {/* =====================================================
+        {/* ===================================================
             CHAT
-        ====================================================== */}
+        ==================================================== */}
 
         {activeTab ===
           'chat' && (
@@ -2316,6 +3717,7 @@ export default function ParticipantDashboard({
             <div className="px-5 py-4 border-b border-[#E8E8F0] flex items-center gap-3">
 
               <div className="w-8 h-8 rounded-full gradient-primary flex items-center justify-center text-white text-xs font-bold">
+
                 {conversation?.admin?.name
                   ?.slice(
                     0,
@@ -2323,6 +3725,7 @@ export default function ParticipantDashboard({
                   )
                   .toUpperCase() ||
                   'EA'}
+
               </div>
 
               <div className="flex-1">
@@ -2360,7 +3763,7 @@ export default function ParticipantDashboard({
 
             </div>
 
-            {/* Chat messages */}
+            {/* Messages */}
 
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
 
@@ -2416,16 +3819,16 @@ export default function ParticipantDashboard({
               ) : (
                 messages.map(
                   (
-                    msg
+                    message
                   ) => {
                     const isMine =
-                      msg.sender?._id ===
+                      message.sender?._id ===
                       participant?.id;
 
                     return (
                       <div
                         key={
-                          msg._id
+                          message._id
                         }
                         className={`flex gap-3 ${
                           isMine
@@ -2435,6 +3838,7 @@ export default function ParticipantDashboard({
                       >
 
                         <div className="w-8 h-8 rounded-full gradient-primary flex items-center justify-center text-white text-xs font-bold shrink-0 mt-auto">
+
                           {isMine
                             ? participant?.name
                                 ?.charAt(
@@ -2442,13 +3846,14 @@ export default function ParticipantDashboard({
                                 )
                                 .toUpperCase() ||
                               'P'
-                            : msg.sender?.name
+                            : message.sender?.name
                                 ?.slice(
                                   0,
                                   2
                                 )
                                 .toUpperCase() ||
                               'EA'}
+
                         </div>
 
                         <div
@@ -2467,13 +3872,13 @@ export default function ParticipantDashboard({
                             }`}
                           >
                             {
-                              msg.content
+                              message.content
                             }
                           </div>
 
                           <p className="text-xs text-[#C0C0D0]">
                             {new Date(
-                              msg.createdAt
+                              message.createdAt
                             ).toLocaleTimeString(
                               'en-US',
                               {
@@ -2507,22 +3912,22 @@ export default function ParticipantDashboard({
                     newMsg
                   }
                   onChange={(
-                    e
+                    event
                   ) =>
                     setNewMsg(
-                      e.target
+                      event.target
                         .value
                     )
                   }
                   onKeyDown={(
-                    e
+                    event
                   ) => {
                     if (
-                      e.key ===
+                      event.key ===
                         'Enter' &&
-                      !e.shiftKey
+                      !event.shiftKey
                     ) {
-                      e.preventDefault();
+                      event.preventDefault();
 
                       void sendMsg();
                     }
@@ -2568,7 +3973,7 @@ export default function ParticipantDashboard({
                 )}
 
             </div>
-
+ 
           </div>
         )}
 

@@ -1,26 +1,19 @@
-
 import { Response } from "express";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+
 import OTP from "../models/OTP";
 import Invitation from "../models/Invitation";
 import Event from "../models/Event";
 import User from "../models/User";
 import EventParticipant from "../models/EventParticipant";
+
 import { AuthRequest } from "../middleware/authMiddleware";
 import { sendInvitationEmail } from "../services/emailService";
-import jwt from "jsonwebtoken";
 
 // =========================================================
 // CREATE INVITATION
-// =========================================================
-// ADMIN PROVIDES:
-// name + email + event
-//
-// MOBILE IS NOT REQUIRED HERE.
-//
-// Participant will provide mobile later when opening
-// the invitation link.
 // =========================================================
 
 export const createInvitation = async (
@@ -28,19 +21,11 @@ export const createInvitation = async (
   res: Response
 ) => {
   try {
-    // -------------------------------------------------------
-    // CHECK AUTHENTICATION
-    // -------------------------------------------------------
-
     if (!req.user) {
       return res.status(401).json({
         message: "Authentication required",
       });
     }
-
-    // -------------------------------------------------------
-    // CHECK ADMIN
-    // -------------------------------------------------------
 
     if (req.user.role !== "admin") {
       return res.status(403).json({
@@ -48,33 +33,19 @@ export const createInvitation = async (
       });
     }
 
-    // -------------------------------------------------------
-    // GET REQUEST DATA
-    // -------------------------------------------------------
-
     const {
       name,
       email,
       eventId,
     } = req.body;
 
-    // -------------------------------------------------------
-    // CHECK REQUIRED FIELDS
-    // -------------------------------------------------------
-
     if (!name || !email || !eventId) {
       return res.status(400).json({
-        message:
-          "Name, email and event are required",
+        message: "Name, email and event are required",
       });
     }
 
-    // -------------------------------------------------------
-    // FIND EVENT
-    // -------------------------------------------------------
-
-    const event =
-      await Event.findById(eventId);
+    const event = await Event.findById(eventId);
 
     if (!event) {
       return res.status(404).json({
@@ -82,88 +53,50 @@ export const createInvitation = async (
       });
     }
 
-    // -------------------------------------------------------
-    // GENERATE INVITATION TOKEN
-    // -------------------------------------------------------
+    const token = crypto
+      .randomBytes(32)
+      .toString("hex");
 
-    const token =
-      crypto
-        .randomBytes(32)
-        .toString("hex");
-
-    // -------------------------------------------------------
-    // INVITATION EXPIRES AFTER 7 DAYS
-    // -------------------------------------------------------
-
-    const expiresAt =
-      new Date();
+    const expiresAt = new Date();
 
     expiresAt.setDate(
       expiresAt.getDate() + 7
     );
 
-    // -------------------------------------------------------
-    // CREATE INVITATION
-    // -------------------------------------------------------
-    // MOBILE IS NOT SAVED YET.
-    // It will be saved when participant enters it.
-    // -------------------------------------------------------
-
     const invitation =
       await Invitation.create({
-        name:
-          name.trim(),
+        name: name.trim(),
 
-        email:
-          email
-            .trim()
-            .toLowerCase(),
+        email: email
+          .trim()
+          .toLowerCase(),
 
-        event:
-          eventId,
+        event: eventId,
 
-        invitedBy:
-          req.user.userId,
+        invitedBy: req.user.userId,
 
-        status:
-          "pending",
+        status: "pending",
 
         token,
 
         expiresAt,
       });
 
-    // -------------------------------------------------------
-    // CREATE INVITATION LINK
-    // -------------------------------------------------------
-
     const invitationLink =
       `http://localhost:5173/accept-invitation?token=${token}`;
 
-    // -------------------------------------------------------
-    // SEND INVITATION EMAIL
-    // -------------------------------------------------------
-
     await sendInvitationEmail({
-      to:
-        invitation.email,
+      to: invitation.email,
 
-      name:
-        invitation.name,
+      name: invitation.name,
 
-      eventName:
-        event.name,
+      eventName: event.name,
 
       invitationLink,
     });
 
-    // -------------------------------------------------------
-    // SUCCESS RESPONSE
-    // -------------------------------------------------------
-
     return res.status(201).json({
-      message:
-        "Invitation sent successfully",
+      message: "Invitation sent successfully",
 
       invitation,
     });
@@ -189,19 +122,11 @@ export const getInvitations = async (
   res: Response
 ) => {
   try {
-    // -------------------------------------------------------
-    // CHECK AUTHENTICATION
-    // -------------------------------------------------------
-
     if (!req.user) {
       return res.status(401).json({
         message: "Authentication required",
       });
     }
-
-    // -------------------------------------------------------
-    // CHECK ADMIN
-    // -------------------------------------------------------
 
     if (req.user.role !== "admin") {
       return res.status(403).json({
@@ -209,10 +134,6 @@ export const getInvitations = async (
           "Only admins can view invitations",
       });
     }
-
-    // -------------------------------------------------------
-    // GET INVITATIONS
-    // -------------------------------------------------------
 
     const invitations =
       await Invitation.find()
@@ -247,30 +168,16 @@ export const getInvitations = async (
 // =========================================================
 // GET INVITATION BY TOKEN
 // =========================================================
-// This is called when participant opens:
-//
-// /accept-invitation?token=XXXXX
-//
-// Mobile may or may not exist yet.
-// =========================================================
 
 export const getInvitationByToken = async (
   req: AuthRequest,
   res: Response
 ) => {
   try {
-    // -------------------------------------------------------
-    // GET TOKEN
-    // -------------------------------------------------------
-
     const token =
       Array.isArray(req.params.token)
         ? req.params.token[0]
         : req.params.token;
-
-    // -------------------------------------------------------
-    // CHECK TOKEN
-    // -------------------------------------------------------
 
     if (!token) {
       return res.status(400).json({
@@ -278,10 +185,6 @@ export const getInvitationByToken = async (
           "Invitation token is required",
       });
     }
-
-    // -------------------------------------------------------
-    // FIND INVITATION
-    // -------------------------------------------------------
 
     const invitation =
       await Invitation.findOne({
@@ -291,10 +194,6 @@ export const getInvitationByToken = async (
         "name type description startDate endDate location"
       );
 
-    // -------------------------------------------------------
-    // CHECK INVITATION
-    // -------------------------------------------------------
-
     if (!invitation) {
       return res.status(404).json({
         message:
@@ -302,23 +201,14 @@ export const getInvitationByToken = async (
       });
     }
 
-    // -------------------------------------------------------
-    // CHECK EXPIRATION
-    // -------------------------------------------------------
-
     if (
       invitation.status === "pending" &&
       invitation.expiresAt < new Date()
     ) {
-      invitation.status =
-        "expired";
+      invitation.status = "expired";
 
       await invitation.save();
     }
-
-    // -------------------------------------------------------
-    // CHECK STATUS
-    // -------------------------------------------------------
 
     if (
       invitation.status === "expired"
@@ -338,43 +228,23 @@ export const getInvitationByToken = async (
       });
     }
 
-    // -------------------------------------------------------
-    // RETURN INVITATION
-    // -------------------------------------------------------
-
     return res.status(200).json({
       invitation: {
-        id:
-          invitation._id,
+        id: invitation._id,
 
-        name:
-          invitation.name,
+        name: invitation.name,
 
-        email:
-          invitation.email,
+        email: invitation.email,
 
-        // ---------------------------------------------------
-        // MOBILE
-        // ---------------------------------------------------
-        // If participant has already entered mobile,
-        // return only the last 4 digits.
-        //
-        // Otherwise mobile will be undefined.
-        // ---------------------------------------------------
+        mobile: invitation.mobile
+          ? `******${invitation.mobile.slice(-4)}`
+          : undefined,
 
-        mobile:
-          invitation.mobile
-            ? `******${invitation.mobile.slice(-4)}`
-            : undefined,
+        status: invitation.status,
 
-        status:
-          invitation.status,
+        expiresAt: invitation.expiresAt,
 
-        expiresAt:
-          invitation.expiresAt,
-
-        event:
-          invitation.event,
+        event: invitation.event,
       },
     });
 
@@ -393,46 +263,20 @@ export const getInvitationByToken = async (
 // =========================================================
 // SEND OTP FOR INVITATION
 // =========================================================
-// PARTICIPANT ENTERS MOBILE HERE.
-//
-// Request:
-//
-// POST /api/invitations/:token/send-otp
-//
-// Body:
-//
-// {
-//   "mobile": "9876543210"
-// }
-//
-// The mobile is saved to the Invitation document.
-// =========================================================
 
 export const sendInvitationOTP = async (
   req: AuthRequest,
   res: Response
 ) => {
   try {
-    // -------------------------------------------------------
-    // GET TOKEN
-    // -------------------------------------------------------
-
     const token =
       Array.isArray(req.params.token)
         ? req.params.token[0]
         : req.params.token;
 
-    // -------------------------------------------------------
-    // GET MOBILE FROM PARTICIPANT
-    // -------------------------------------------------------
-
     const {
       mobile,
     } = req.body;
-
-    // -------------------------------------------------------
-    // CHECK TOKEN
-    // -------------------------------------------------------
 
     if (!token) {
       return res.status(400).json({
@@ -441,10 +285,6 @@ export const sendInvitationOTP = async (
       });
     }
 
-    // -------------------------------------------------------
-    // CHECK MOBILE
-    // -------------------------------------------------------
-
     if (!mobile) {
       return res.status(400).json({
         message:
@@ -452,18 +292,10 @@ export const sendInvitationOTP = async (
       });
     }
 
-    // -------------------------------------------------------
-    // CLEAN MOBILE
-    // -------------------------------------------------------
-
     const cleanMobile =
       mobile
         .toString()
         .replace(/\D/g, "");
-
-    // -------------------------------------------------------
-    // VALIDATE MOBILE
-    // -------------------------------------------------------
 
     if (
       cleanMobile.length !== 10
@@ -474,18 +306,10 @@ export const sendInvitationOTP = async (
       });
     }
 
-    // -------------------------------------------------------
-    // FIND INVITATION
-    // -------------------------------------------------------
-
     const invitation =
       await Invitation.findOne({
         token,
       });
-
-    // -------------------------------------------------------
-    // CHECK INVITATION
-    // -------------------------------------------------------
 
     if (!invitation) {
       return res.status(404).json({
@@ -493,10 +317,6 @@ export const sendInvitationOTP = async (
           "Invitation not found",
       });
     }
-
-    // -------------------------------------------------------
-    // CHECK STATUS
-    // -------------------------------------------------------
 
     if (
       invitation.status === "accepted"
@@ -516,15 +336,10 @@ export const sendInvitationOTP = async (
       });
     }
 
-    // -------------------------------------------------------
-    // CHECK EXPIRATION
-    // -------------------------------------------------------
-
     if (
       invitation.expiresAt < new Date()
     ) {
-      invitation.status =
-        "expired";
+      invitation.status = "expired";
 
       await invitation.save();
 
@@ -534,18 +349,10 @@ export const sendInvitationOTP = async (
       });
     }
 
-    // =======================================================
-    // SAVE PARTICIPANT MOBILE TO INVITATION
-    // =======================================================
-
     invitation.mobile =
       cleanMobile;
 
     await invitation.save();
-
-    // -------------------------------------------------------
-    // GENERATE SECURE 6-DIGIT OTP
-    // -------------------------------------------------------
 
     const otp =
       crypto.randomInt(
@@ -553,19 +360,11 @@ export const sendInvitationOTP = async (
         1000000
       ).toString();
 
-    // -------------------------------------------------------
-    // HASH OTP
-    // -------------------------------------------------------
-
     const otpHash =
       await bcrypt.hash(
         otp,
         10
       );
-
-    // -------------------------------------------------------
-    // OTP EXPIRES IN 5 MINUTES
-    // -------------------------------------------------------
 
     const expiresAt =
       new Date(
@@ -573,58 +372,33 @@ export const sendInvitationOTP = async (
           5 * 60 * 1000
       );
 
-    // -------------------------------------------------------
-    // DELETE OLD OTP
-    // -------------------------------------------------------
-
     await OTP.deleteMany({
-      invitationToken:
-        token,
+      invitationToken: token,
     });
 
-    // -------------------------------------------------------
-    // SAVE OTP
-    // -------------------------------------------------------
-
     await OTP.create({
-      mobile:
-        cleanMobile,
+      mobile: cleanMobile,
 
       otpHash,
 
-      invitationToken:
-        token,
+      invitationToken: token,
 
-      name:
-        invitation.name,
+      name: invitation.name,
 
       expiresAt,
 
-      attempts:
-        0,
+      attempts: 0,
     });
-
-    // -------------------------------------------------------
-    // DEVELOPMENT MODE
-    // -------------------------------------------------------
-    // Later this console.log will be replaced by an
-    // actual SMS service such as MSG91 / Twilio / Exotel.
-    // -------------------------------------------------------
 
     console.log(
       `🔐 OTP for ${cleanMobile}: ${otp}`
     );
 
-    // -------------------------------------------------------
-    // SUCCESS RESPONSE
-    // -------------------------------------------------------
-
     return res.status(200).json({
       message:
         "OTP sent successfully",
 
-      expiresIn:
-        300,
+      expiresIn: 300,
 
       mobile:
         `******${cleanMobile.slice(-4)}`,
@@ -645,25 +419,12 @@ export const sendInvitationOTP = async (
 // =========================================================
 // VERIFY INVITATION OTP
 // =========================================================
-// After OTP verification:
-//
-// 1. Find/create participant
-// 2. Save mobile to User
-// 3. Add participant to event
-// 4. Mark invitation accepted
-// 5. Create JWT
-// 6. Participant goes to dashboard
-// =========================================================
 
 export const verifyInvitationOTP = async (
   req: AuthRequest,
   res: Response
 ) => {
   try {
-    // -------------------------------------------------------
-    // GET TOKEN
-    // -------------------------------------------------------
-
     const token =
       Array.isArray(req.params.token)
         ? req.params.token[0]
@@ -673,10 +434,6 @@ export const verifyInvitationOTP = async (
       otp,
     } = req.body;
 
-    // -------------------------------------------------------
-    // CHECK TOKEN
-    // -------------------------------------------------------
-
     if (!token) {
       return res.status(400).json({
         message:
@@ -684,20 +441,11 @@ export const verifyInvitationOTP = async (
       });
     }
 
-    // -------------------------------------------------------
-    // CHECK OTP
-    // -------------------------------------------------------
-
     if (!otp) {
       return res.status(400).json({
-        message:
-          "OTP is required",
+        message: "OTP is required",
       });
     }
-
-    // -------------------------------------------------------
-    // FIND INVITATION
-    // -------------------------------------------------------
 
     const invitation =
       await Invitation.findOne({
@@ -711,20 +459,12 @@ export const verifyInvitationOTP = async (
       });
     }
 
-    // -------------------------------------------------------
-    // CHECK MOBILE
-    // -------------------------------------------------------
-
     if (!invitation.mobile) {
       return res.status(400).json({
         message:
           "Mobile number not found. Please enter your mobile number first.",
       });
     }
-
-    // -------------------------------------------------------
-    // CHECK INVITATION STATUS
-    // -------------------------------------------------------
 
     if (
       invitation.status === "accepted"
@@ -744,15 +484,10 @@ export const verifyInvitationOTP = async (
       });
     }
 
-    // -------------------------------------------------------
-    // CHECK INVITATION EXPIRATION
-    // -------------------------------------------------------
-
     if (
       invitation.expiresAt < new Date()
     ) {
-      invitation.status =
-        "expired";
+      invitation.status = "expired";
 
       await invitation.save();
 
@@ -762,14 +497,9 @@ export const verifyInvitationOTP = async (
       });
     }
 
-    // -------------------------------------------------------
-    // FIND OTP
-    // -------------------------------------------------------
-
     const otpRecord =
       await OTP.findOne({
-        invitationToken:
-          token,
+        invitationToken: token,
       });
 
     if (!otpRecord) {
@@ -779,16 +509,11 @@ export const verifyInvitationOTP = async (
       });
     }
 
-    // -------------------------------------------------------
-    // CHECK OTP EXPIRATION
-    // -------------------------------------------------------
-
     if (
       otpRecord.expiresAt < new Date()
     ) {
       await OTP.deleteOne({
-        _id:
-          otpRecord._id,
+        _id: otpRecord._id,
       });
 
       return res.status(400).json({
@@ -797,16 +522,11 @@ export const verifyInvitationOTP = async (
       });
     }
 
-    // -------------------------------------------------------
-    // CHECK ATTEMPTS
-    // -------------------------------------------------------
-
     if (
       otpRecord.attempts >= 5
     ) {
       await OTP.deleteOne({
-        _id:
-          otpRecord._id,
+        _id: otpRecord._id,
       });
 
       return res.status(429).json({
@@ -815,19 +535,11 @@ export const verifyInvitationOTP = async (
       });
     }
 
-    // -------------------------------------------------------
-    // VERIFY OTP
-    // -------------------------------------------------------
-
     const isValidOTP =
       await bcrypt.compare(
         otp.toString(),
         otpRecord.otpHash
       );
-
-    // -------------------------------------------------------
-    // INVALID OTP
-    // -------------------------------------------------------
 
     if (!isValidOTP) {
       otpRecord.attempts += 1;
@@ -835,8 +547,7 @@ export const verifyInvitationOTP = async (
       await otpRecord.save();
 
       return res.status(400).json({
-        message:
-          "Invalid OTP",
+        message: "Invalid OTP",
 
         attemptsRemaining:
           5 -
@@ -845,116 +556,64 @@ export const verifyInvitationOTP = async (
     }
 
     // =======================================================
-    // OTP IS VALID
+    // OTP VALID
     // =======================================================
-
-    // -------------------------------------------------------
-    // FIND EXISTING USER
-    // -------------------------------------------------------
 
     let user =
       await User.findOne({
-        email:
-          invitation.email,
+        email: invitation.email,
       });
 
-    // =======================================================
-    // EXISTING USER
-    // =======================================================
-
     if (user) {
-
-      // -----------------------------------------------------
-      // UPDATE MOBILE
-      // -----------------------------------------------------
-
       user.mobile =
         invitation.mobile;
 
       await user.save();
 
     } else {
-
-      // =====================================================
-      // CREATE NEW PARTICIPANT
-      // =====================================================
-
       user =
         await User.create({
-          name:
-            invitation.name,
+          name: invitation.name,
 
-          email:
-            invitation.email,
+          email: invitation.email,
 
-          mobile:
-            invitation.mobile,
+          mobile: invitation.mobile,
 
-          role:
-            "participant",
+          role: "participant",
         });
     }
 
-    // -------------------------------------------------------
-    // CHECK EVENT PARTICIPATION
-    // -------------------------------------------------------
-
     let eventParticipant =
       await EventParticipant.findOne({
-        event:
-          invitation.event,
+        event: invitation.event,
 
-        user:
-          user._id,
+        user: user._id,
       });
 
-    // -------------------------------------------------------
-    // ADD TO EVENT IF NOT ALREADY ADDED
-    // -------------------------------------------------------
-
     if (!eventParticipant) {
-
       eventParticipant =
         await EventParticipant.create({
-          event:
-            invitation.event,
+          event: invitation.event,
 
-          user:
-            user._id,
+          user: user._id,
 
-          status:
-            "accepted",
+          status: "accepted",
 
           registrationCompleted:
             false,
 
-          joinedAt:
-            new Date(),
+          joinedAt: new Date(),
         });
-
     }
-
-    // -------------------------------------------------------
-    // MARK INVITATION AS ACCEPTED
-    // -------------------------------------------------------
 
     invitation.status =
       "accepted";
 
     await invitation.save();
 
-    // -------------------------------------------------------
-    // DELETE USED OTP
-    // -------------------------------------------------------
-
     await OTP.deleteOne({
-      _id:
-        otpRecord._id,
+      _id: otpRecord._id,
     });
-
-    // -------------------------------------------------------
-    // CREATE JWT
-    // -------------------------------------------------------
 
     const jwtSecret =
       process.env.JWT_SECRET;
@@ -978,37 +637,26 @@ export const verifyInvitationOTP = async (
         jwtSecret,
 
         {
-          expiresIn:
-            "7d",
+          expiresIn: "7d",
         }
       );
-
-    // -------------------------------------------------------
-    // SUCCESS
-    // -------------------------------------------------------
 
     return res.status(200).json({
       message:
         "OTP verified successfully. Login successful.",
 
-      token:
-        jwtToken,
+      token: jwtToken,
 
       user: {
-        id:
-          user._id,
+        id: user._id,
 
-        name:
-          user.name,
+        name: user.name,
 
-        email:
-          user.email,
+        email: user.email,
 
-        mobile:
-          user.mobile,
+        mobile: user.mobile,
 
-        role:
-          user.role,
+        role: user.role,
       },
     });
 
@@ -1025,29 +673,186 @@ export const verifyInvitationOTP = async (
 };
 
 // =========================================================
+// DELETE INVITATION / REMOVE PARTICIPANT
+// =========================================================
+//
+// ADMIN ACTION
+//
+// This performs the actual MongoDB deletion.
+//
+// 1. Find invitation
+// 2. Find participant account
+// 3. Remove participant from THIS event
+// 4. Delete OTP
+// 5. Delete invitation
+//
+// IMPORTANT:
+// The User account is NOT deleted.
+//
+// =========================================================
+
+export const deleteInvitation = async (
+  req: AuthRequest,
+  res: Response
+) => {
+  try {
+    // -------------------------------------------------------
+    // AUTHENTICATION
+    // -------------------------------------------------------
+
+    if (!req.user) {
+      return res.status(401).json({
+        message:
+          "Authentication required",
+      });
+    }
+
+    // -------------------------------------------------------
+    // ADMIN CHECK
+    // -------------------------------------------------------
+
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
+        message:
+          "Only admins can remove participants",
+      });
+    }
+
+    // -------------------------------------------------------
+    // GET INVITATION ID
+    // -------------------------------------------------------
+
+    const invitationId =
+      Array.isArray(
+        req.params.invitationId
+      )
+        ? req.params.invitationId[0]
+        : req.params.invitationId;
+
+    if (!invitationId) {
+      return res.status(400).json({
+        message:
+          "Invitation ID is required",
+      });
+    }
+
+    // -------------------------------------------------------
+    // FIND INVITATION
+    // -------------------------------------------------------
+
+    const invitation =
+      await Invitation.findById(
+        invitationId
+      );
+
+    if (!invitation) {
+      return res.status(404).json({
+        message:
+          "Invitation not found",
+      });
+    }
+
+    // -------------------------------------------------------
+    // SAVE EVENT ID
+    // -------------------------------------------------------
+
+    const eventId =
+      invitation.event;
+
+    // -------------------------------------------------------
+    // FIND PARTICIPANT USER
+    // -------------------------------------------------------
+
+    const participant =
+      await User.findOne({
+        email:
+          invitation.email,
+
+        role:
+          "participant",
+      });
+
+    // -------------------------------------------------------
+    // REMOVE PARTICIPANT FROM THIS EVENT
+    // -------------------------------------------------------
+
+    if (participant) {
+      const result =
+        await EventParticipant.deleteOne({
+          event: eventId,
+
+          user: participant._id,
+        });
+
+      console.log(
+        "EventParticipant removed:",
+        result.deletedCount
+      );
+    }
+
+    // -------------------------------------------------------
+    // DELETE RELATED OTP RECORDS
+    // -------------------------------------------------------
+
+    const otpResult =
+      await OTP.deleteMany({
+        invitationToken:
+          invitation.token,
+      });
+
+    console.log(
+      "OTP records removed:",
+      otpResult.deletedCount
+    );
+
+    // -------------------------------------------------------
+    // DELETE INVITATION
+    // -------------------------------------------------------
+
+    const invitationResult =
+      await Invitation.deleteOne({
+        _id:
+          invitation._id,
+      });
+
+    console.log(
+      "Invitation removed:",
+      invitationResult.deletedCount
+    );
+
+    // -------------------------------------------------------
+    // SUCCESS
+    // -------------------------------------------------------
+
+    return res.status(200).json({
+      message:
+        "Participant removed successfully",
+
+      invitationDeleted:
+        invitationResult.deletedCount,
+
+      participantRemoved:
+        participant ? true : false,
+    });
+
+  } catch (error) {
+    console.error(
+      "Delete invitation/participant error:",
+      error
+    );
+
+    return res.status(500).json({
+      message:
+        "Server error",
+    });
+  }
+};
+
+// =========================================================
 // ACCEPT INVITATION
 // =========================================================
+//
 // LEGACY PASSWORD-BASED FLOW
-// =========================================================
-//
-// This route is NO LONGER needed for the new participant
-// OTP flow.
-//
-// New flow:
-//
-// invitation link
-//      ↓
-// enter mobile
-//      ↓
-// sendInvitationOTP()
-//      ↓
-// enter OTP
-//      ↓
-// verifyInvitationOTP()
-//      ↓
-// participant dashboard
-//
-// Kept temporarily so existing route imports do not break.
 // =========================================================
 
 export const acceptInvitation = async (

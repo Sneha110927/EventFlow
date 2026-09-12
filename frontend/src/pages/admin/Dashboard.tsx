@@ -833,23 +833,23 @@ const activities: Activity[] = [
                 bg: '#EEF2FF',
               },
               {
-                label: 'Send Announcement',
+                label: 'Broadcast Announcement',
                 page: 'announcements',
                 color: '#3D9E8C',
                 bg: '#E6F4F1',
               },
-              {
-                label: 'Review Documents',
-                page: 'documents',
-                color: '#9B7ECB',
-                bg: '#F0EBFB',
-              },
-              {
-                label: 'Open Chat',
-                page: 'chat',
-                color: '#E8824A',
-                bg: '#FEF3ED',
-              },
+              // {
+              //   label: 'Review Documents',
+              //   page: 'documents',
+              //   color: '#9B7ECB',
+              //   bg: '#F0EBFB',
+              // },
+              // {
+              //   label: 'Open Chat',
+              //   page: 'chat',
+              //   color: '#E8824A',
+              //   bg: '#FEF3ED',
+              // },
             ].map((action) => (
               <button
                 key={action.page}

@@ -275,17 +275,17 @@ export const sendParticipantOTP = async (
       });
     }
 
-    // --------------------------------------------------------
-    // Generate OTP
-    // --------------------------------------------------------
+// --------------------------------------------------------
+// Generate OTP
+// --------------------------------------------------------
 
-    const otp = crypto
-      .randomInt(100000, 1000000)
-      .toString();
+const otp = crypto
+  .randomInt(100000, 1000000)
+  .toString();
 
-    console.log(
-      `🔐 PARTICIPANT PORTAL OTP for ${cleanMobile}: ${otp}`
-    );
+console.log(
+  `📱 Sending participant OTP via MSG91 to ${cleanMobile}`
+);
 
     // --------------------------------------------------------
     // Hash OTP
@@ -331,6 +331,66 @@ export const sendParticipantOTP = async (
       attempts: 0,
     });
 
+    // --------------------------------------------------------
+// Send OTP through MSG91
+// --------------------------------------------------------
+
+const authKey = process.env.MSG91_AUTH_KEY;
+const templateId = process.env.MSG91_TEMPLATE_ID;
+
+if (!authKey || !templateId) {
+  throw new Error(
+    "MSG91_AUTH_KEY or MSG91_TEMPLATE_ID is missing"
+  );
+}
+
+const mobileWithCountryCode = `91${cleanMobile}`;
+
+const msg91Response = await fetch(
+  "https://control.msg91.com/api/v5/flow/",
+  {
+    method: "POST",
+
+    headers: {
+      "Content-Type": "application/json",
+      authkey: authKey,
+    },
+
+    body: JSON.stringify({
+      template_id: templateId,
+
+      recipients: [
+        {
+          mobiles: mobileWithCountryCode,
+          OTP: otp,
+        },
+      ],
+    }),
+  }
+);
+
+const msg91Data = await msg91Response.json();
+
+console.log(
+  "MSG91 response:",
+  msg91Data
+);
+
+if (!msg91Response.ok) {
+  console.error(
+    "MSG91 failed:",
+    msg91Data
+  );
+
+  return res.status(500).json({
+    message:
+      "Unable to send OTP through SMS service.",
+  });
+}
+
+console.log(
+  `📱 Participant OTP SMS request sent to ${cleanMobile}`
+);
     return res.status(200).json({
       message:
         "OTP generated successfully.",

@@ -3,8 +3,17 @@ import Event from "../models/Event";
 import { AuthRequest } from "../middleware/authMiddleware";
 
 // Create Event
-export const createEvent = async (req: AuthRequest, res: Response) => {
+export const createEvent = async (
+  req: AuthRequest,
+  res: Response
+) => {
   try {
+    console.log("=================================");
+    console.log("CREATE EVENT REQUEST");
+    console.log("USER:", req.user);
+    console.log("BODY:", req.body);
+    console.log("=================================");
+
     if (!req.user) {
       return res.status(401).json({
         message: "Authentication required",
@@ -29,27 +38,40 @@ export const createEvent = async (req: AuthRequest, res: Response) => {
 
     if (!name || !type) {
       return res.status(400).json({
-        message: "Event name and type are required",
+        message:
+          "Event name and type are required",
       });
     }
 
     const event = await Event.create({
-      name,
+      name: name.trim(),
       type,
-      description,
+      description:
+        description?.trim() || "",
       startDate,
       endDate,
-      location,
-      modules,
+      location:
+        location?.trim() || "",
+      modules: modules || [],
       createdBy: req.user.userId,
     });
 
+    console.log("=================================");
+    console.log("EVENT SAVED TO MONGODB:");
+    console.log(event);
+    console.log("EVENT ID:", event._id);
+    console.log("=================================");
+
     return res.status(201).json({
-      message: "Event created successfully",
+      message:
+        "Event created successfully",
       event,
     });
   } catch (error) {
-    console.error("Create event error:", error);
+    console.error(
+      "CREATE EVENT ERROR:",
+      error
+    );
 
     return res.status(500).json({
       message: "Server error",

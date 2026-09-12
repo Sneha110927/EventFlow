@@ -112,7 +112,7 @@ export default function ParticipantLogin({
       setOtpSent(true);
 
       setMessage(
-        "OTP has been generated. Check the backend terminal for the development OTP."
+        "OTP has been sent successfully."
       );
 
     } catch (error) {

@@ -3,10 +3,13 @@ import mongoose from "mongoose";
 import Announcement from "../models/Announcement";
 import EventParticipant from "../models/EventParticipant";
 
-interface AuthenticatedRequest extends Request {
+interface AuthenticatedRequest
+  extends Request {
   user?: {
-    id: string;
-    role: "admin" | "participant";
+    userId: string;
+    role:
+      | "admin"
+      | "participant";
   };
 }
 
@@ -42,7 +45,7 @@ export const createAnnouncement = async (
       return;
     }
 
-    if (!req.user?.id) {
+    if (!req.user?.userId) {
       res.status(401).json({
         message: "Authentication required",
       });
@@ -54,7 +57,7 @@ export const createAnnouncement = async (
       title: title.trim(),
       content: content.trim(),
       target,
-      sentBy: req.user.id,
+      sentBy: req.user.userId,
       readBy: [],
     });
 
@@ -123,16 +126,16 @@ export const getParticipantAnnouncements = async (
   res: Response
 ): Promise<void> => {
   try {
-    if (!req.user?.id) {
-      res.status(401).json({
-        message: "Authentication required",
-      });
-      return;
-    }
+  if (!req.user?.userId) {
+  res.status(401).json({
+    message: "Authentication required",
+  });
+  return;
+} 
 
     // Find all events this participant belongs to
     const participations = await EventParticipant.find({
-      user: req.user.id,
+      user: req.user.userId,
     }).select("event status");
 
     if (participations.length === 0) {
@@ -199,7 +202,7 @@ export const markAnnouncementAsRead = async (
   try {
     const { id } = req.params;
 
-    if (!req.user?.id) {
+    if (!req.user?.userId) {
       res.status(401).json({
         message: "Authentication required",
       });
@@ -216,12 +219,12 @@ export const markAnnouncementAsRead = async (
     }
 
     const alreadyRead = announcement.readBy.some(
-      (userId) => userId.toString() === req.user!.id
+      (userId) => userId.toString() === req.user!.userId
     );
 
     if (!alreadyRead) {
       announcement.readBy.push(
-        new mongoose.Types.ObjectId(req.user.id)
+        new mongoose.Types.ObjectId(req.user.userId)
       );
 
       await announcement.save();

@@ -167,11 +167,7 @@ export default function App() {
       return;
     }
   };
-
-  // ---------------------------------------------------------
-  // LANDING PAGE
-  // ---------------------------------------------------------
-
+  
   if (view === 'landing') {
     return (
       <Landing
@@ -179,10 +175,6 @@ export default function App() {
       />
     );
   }
-
-  // ---------------------------------------------------------
-  // ADMIN LOGIN PAGE
-  // ---------------------------------------------------------
 
   if (view === 'login') {
     return (
@@ -196,9 +188,6 @@ export default function App() {
     );
   }
 
-  // ---------------------------------------------------------
-  // PARTICIPANT LOGIN PAGE
-  // ---------------------------------------------------------
 
   if (view === 'participant-login') {
     return (
@@ -209,9 +198,7 @@ export default function App() {
     );
   }
 
-  // ---------------------------------------------------------
-  // FORGOT PASSWORD PAGE
-  // ---------------------------------------------------------
+
 
   if (view === 'forgot-password') {
     return (
@@ -224,9 +211,7 @@ export default function App() {
     );
   }
 
-  // ---------------------------------------------------------
-  // PARTICIPANT DASHBOARD
-  // ---------------------------------------------------------
+
 
   if (view === 'participant-dashboard') {
     return (
@@ -236,9 +221,7 @@ export default function App() {
     );
   }
 
-  // ---------------------------------------------------------
-  // ADMIN PAGE ID
-  // ---------------------------------------------------------
+
 
   const adminPageId =
     view === 'admin-dashboard'
