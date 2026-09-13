@@ -16,7 +16,6 @@ import Invitations from './pages/admin/Invitiations.tsx';
 import Announcements from './pages/admin/Announcements';
 import Documents from './pages/admin/Documents';
 import Chat from './pages/admin/Chat';
-import EventBuilder from './pages/admin/EventBuilder';
 
 import ParticipantDashboard from './pages/participant/Dashboard';
 
@@ -33,7 +32,6 @@ type View =
   | 'announcements'
   | 'documents'
   | 'chat'
-  | 'event-builder'
   | 'participant-dashboard';
 
 export default function App() {
@@ -44,9 +42,7 @@ export default function App() {
     setSelectedParticipantId,
   ] = useState<string | null>(null);
 
-  // ---------------------------------------------------------
-  // READ URL PARAMETERS
-  // ---------------------------------------------------------
+ 
 
   const searchParams = new URLSearchParams(
     window.location.search
@@ -56,9 +52,6 @@ export default function App() {
 
   const resetToken = searchParams.get('resetToken');
 
-  // ---------------------------------------------------------
-  // CHECK FOR INVITATION TOKEN
-  // ---------------------------------------------------------
 
   if (invitationToken) {
     return (
@@ -72,9 +65,7 @@ export default function App() {
     );
   }
 
-  // ---------------------------------------------------------
-  // CHECK FOR PASSWORD RESET TOKEN
-  // ---------------------------------------------------------
+
 
   if (resetToken) {
     return (
@@ -88,9 +79,7 @@ export default function App() {
     );
   }
 
-  // ---------------------------------------------------------
-  // GO TO LOGIN
-  // ---------------------------------------------------------
+
 
   const goToLogin = (
     role: 'admin' | 'participant'
@@ -102,9 +91,7 @@ export default function App() {
     }
   };
 
-  // ---------------------------------------------------------
-  // HANDLE SUCCESSFUL LOGIN
-  // ---------------------------------------------------------
+ 
 
   const handleLogin = (
     role: 'admin' | 'participant'
@@ -116,9 +103,7 @@ export default function App() {
     }
   };
 
-  // ---------------------------------------------------------
-  // LOGOUT
-  // ---------------------------------------------------------
+
 
   const handleLogout = () => {
     setSelectedParticipantId(null);
@@ -129,9 +114,6 @@ export default function App() {
     setView('landing');
   };
 
-  // ---------------------------------------------------------
-  // ADMIN NAVIGATION
-  // ---------------------------------------------------------
 
   const adminNavigate = (
     page: string,
@@ -154,18 +136,16 @@ export default function App() {
       return;
     }
 
-    // Other admin pages
-    if (
-      page === 'participants' ||
-      page === 'invitations' ||
-      page === 'announcements' ||
-      page === 'documents' ||
-      page === 'chat' ||
-      page === 'event-builder'
-    ) {
-      setView(page);
-      return;
-    }
+   if (
+  page === 'participants' ||
+  page === 'invitations' ||
+  page === 'announcements' ||
+  page === 'documents' ||
+  page === 'chat'
+) {
+  setView(page);
+  return;
+}
   };
   
   if (view === 'landing') {
@@ -222,15 +202,11 @@ export default function App() {
   }
 
 
-
   const adminPageId =
     view === 'admin-dashboard'
       ? 'dashboard'
       : view;
 
-  // ---------------------------------------------------------
-  // ADMIN PORTAL
-  // ---------------------------------------------------------
 
   return (
     <AdminLayout
@@ -240,27 +216,18 @@ export default function App() {
       eventName="Tech Summit 2026"
     >
 
-      {/* ------------------------------------------------- */}
-      {/* DASHBOARD */}
-      {/* ------------------------------------------------- */}
-
       {view === 'admin-dashboard' && (
         <AdminDashboard
           onNavigate={adminNavigate}
         />
       )}
 
-      {/* ------------------------------------------------- */}
-      {/* PARTICIPANTS */}
-      {/* ------------------------------------------------- */}
-
+    
       {view === 'participants' && (
         <Participants />
       )}
 
-      {/* ------------------------------------------------- */}
-      {/* PARTICIPANT PROFILE */}
-      {/* ------------------------------------------------- */}
+    
 
       {view === 'participant-profile' &&
         selectedParticipantId && (
@@ -272,44 +239,22 @@ export default function App() {
           />
         )}
 
-      {/* ------------------------------------------------- */}
-      {/* INVITATIONS */}
-      {/* ------------------------------------------------- */}
-
+      
       {view === 'invitations' && (
         <Invitations />
       )}
 
-      {/* ------------------------------------------------- */}
-      {/* ANNOUNCEMENTS */}
-      {/* ------------------------------------------------- */}
 
       {view === 'announcements' && (
         <Announcements />
       )}
 
-      {/* ------------------------------------------------- */}
-      {/* DOCUMENTS */}
-      {/* ------------------------------------------------- */}
-
       {view === 'documents' && (
         <Documents />
       )}
-
-      {/* ------------------------------------------------- */}
-      {/* CHAT */}
-      {/* ------------------------------------------------- */}
-
+      
       {view === 'chat' && (
         <Chat />
-      )}
-
-      {/* ------------------------------------------------- */}
-      {/* EVENT BUILDER */}
-      {/* ------------------------------------------------- */}
-
-      {view === 'event-builder' && (
-        <EventBuilder />
       )}
 
     </AdminLayout>

@@ -79,41 +79,11 @@ interface EventParticipant {
   updatedAt?: string;
 }
 
-// =========================================================
-// INVITATION TYPE
-// =========================================================
-
-interface Invitation {
-  _id: string;
-
-  name: string;
-
-  email: string;
-
-  status: 'pending' | 'accepted' | 'expired' | string;
-
-  event:
-    | string
-    | {
-        _id: string;
-        name: string;
-        type?: string;
-      };
-
-  createdAt: string;
-
-  updatedAt?: string;
-}
 
 // =========================================================
 // ACTIVITY TYPE
 // =========================================================
 
-interface Activity {
-  text: string;
-  time: string;
-  type: 'reg' | 'invite' | 'doc' | 'announce';
-}
 
 // =========================================================
 // MAIN DASHBOARD
@@ -130,12 +100,10 @@ export default function AdminDashboard({
   const [participants, setParticipants] =
     useState<EventParticipant[]>([]);
 
-  const [invitations, setInvitations] =
-    useState<Invitation[]>([]);
 
   const [loading, setLoading] = useState(true);
 
-  const [participantsLoading, setParticipantsLoading] =
+  const [, setParticipantsLoading] =
     useState(false);
 
   const [error, setError] = useState('');
@@ -285,7 +253,7 @@ export default function AdminDashboard({
           return;
         }
 
-        setInvitations(data.invitations || []);
+        // setInvitations(data.invitations || []);
       } catch (err) {
         console.error(
           'Failed to load invitations:',
@@ -297,31 +265,7 @@ export default function AdminDashboard({
     fetchInvitations();
   }, []);
 
-  // =======================================================
-  // FILTER INVITATIONS FOR SELECTED EVENT
-  // =======================================================
-
-  const eventInvitations = invitations.filter(
-    (invitation) => {
-      if (!selectedEvent) {
-        return false;
-      }
-
-      if (
-        typeof invitation.event === 'string'
-      ) {
-        return (
-          invitation.event ===
-          selectedEvent._id
-        );
-      }
-
-      return (
-        invitation.event?._id ===
-        selectedEvent._id
-      );
-    }
-  );
+ 
 
   // =======================================================
   // REAL PARTICIPANT STATISTICS
@@ -399,170 +343,8 @@ export default function AdminDashboard({
     },
   ];
 
-  // =======================================================
-  // TIME FORMATTER
-  // =======================================================
-
-  const getRelativeTime = (
-    dateString: string
-  ) => {
-    const date = new Date(dateString);
-
-    if (Number.isNaN(date.getTime())) {
-      return '';
-    }
-
-    const now = new Date();
-
-    const difference =
-      now.getTime() - date.getTime();
-
-    const minutes = Math.floor(
-      difference / (1000 * 60)
-    );
-
-    const hours = Math.floor(
-      difference / (1000 * 60 * 60)
-    );
-
-    const days = Math.floor(
-      difference / (1000 * 60 * 60 * 24)
-    );
-
-    if (minutes < 1) {
-      return 'Just now';
-    }
-
-    if (minutes < 60) {
-      return `${minutes}m ago`;
-    }
-
-    if (hours < 24) {
-      return `${hours}h ago`;
-    }
-
-    if (days < 7) {
-      return `${days}d ago`;
-    }
-
-    return date.toLocaleDateString(
-      'en-US',
-      {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      }
-    );
-  };
-
-  // =======================================================
-  // GET PARTICIPANT NAME
-  // =======================================================
-
-  const getParticipantUser = (
-    participant: EventParticipant
-  ): ParticipantUser | null => {
-    if (
-      typeof participant.user ===
-      'string'
-    ) {
-      return null;
-    }
-
-    return participant.user;
-  };
-
-  // =======================================================
-  // RECENT PARTICIPANTS
-  // =======================================================
-
-  const recentParticipants =
-    [...participants]
-      .sort(
-        (a, b) =>
-          new Date(
-            b.createdAt
-          ).getTime() -
-          new Date(
-            a.createdAt
-          ).getTime()
-      )
-      .slice(0, 5);
-
-  // =======================================================
-  // RECENT ACTIVITY
-  // =======================================================
-
-  const participantActivities: Activity[] =
-    participants.map(
-      (participant) => {
-        const user =
-          getParticipantUser(
-            participant
-          );
-
-        const name =
-          user?.name ||
-          'A participant';
-
-        return {
-          text: `${name} joined ${selectedEvent?.name || 'the event'}`,
-          time: getRelativeTime(
-            participant.createdAt
-          ),
-          type: 'reg',
-        };
-      }
-    );
-
-  const invitationActivities: Activity[] =
-    eventInvitations.map(
-      (invitation) => ({
-        text: `Invitation sent to ${invitation.name}`,
-        time: getRelativeTime(
-          invitation.createdAt
-        ),
-        type: 'invite',
-      })
-    );
-
-const activities: Activity[] = [
-  ...participantActivities,
-  ...invitationActivities,
-].slice(0, 6);
-
-  // =======================================================
-  // ACTIVITY COLORS
-  // =======================================================
-
-  const activityColors: Record<
-    string,
-    string
-  > = {
-    doc: '#5B6FD4',
-    invite: '#3D9E8C',
-    reg: '#9B7ECB',
-    announce: '#E8824A',
-  };
-
-  // =======================================================
-  // GET USER INITIALS
-  // =======================================================
-
-  const getInitials = (
-    name: string
-  ) => {
-    return name
-      .split(' ')
-      .filter(Boolean)
-      .slice(0, 2)
-      .map(
-        (word) =>
-          word.charAt(0).toUpperCase()
-      )
-      .join('');
-  };
-
+ 
+ 
   // =======================================================
   // LOADING STATE
   // =======================================================
@@ -741,7 +523,7 @@ const activities: Activity[] = [
                         );
                       }
                     }}
-                    className="mt-1 w-full max-w-sm bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm text-white outline-none"
+                    className="mt-1 w-full  bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm text-white outline-none"
                   >
                     {events.map((event) => (
                       <option
@@ -966,7 +748,7 @@ const activities: Activity[] = [
         {/* RECENT PARTICIPANTS */}
         {/* ================================================= */}
 
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-[#E8E8F0] shadow-soft overflow-hidden">
+        {/* <div className="lg:col-span-2 bg-white rounded-2xl border border-[#E8E8F0] shadow-soft overflow-hidden">
 
           <div className="flex items-center justify-between px-6 py-4 border-b border-[#E8E8F0]">
 
@@ -987,121 +769,16 @@ const activities: Activity[] = [
 
           </div>
 
-          {participantsLoading ? (
-            <div className="p-8 text-center">
+         
+  
 
-              <p className="text-sm text-[#9090A8]">
-                Loading participants...
-              </p>
-
-            </div>
-          ) : recentParticipants.length ===
-            0 ? (
-            <div className="p-8 text-center">
-
-              <div className="text-3xl mb-3">
-                👥
-              </div>
-
-              <p className="text-sm font-medium text-[#1A1A2E]">
-                No participants yet
-              </p>
-
-              <p className="text-xs text-[#9090A8] mt-1">
-                Participants will appear here after they join this event.
-              </p>
-
-            </div>
-          ) : (
-            <div className="divide-y divide-[#F0F0F8]">
-
-              {recentParticipants.map(
-                (participant) => {
-
-                  const user =
-                    getParticipantUser(
-                      participant
-                    );
-
-                  const name =
-                    user?.name ||
-                    'Unknown participant';
-
-                  const email =
-                    user?.email ||
-                    '';
-
-                  return (
-                    <div
-                      key={
-                        participant._id
-                      }
-                      onClick={() =>
-                        typeof participant.user !==
-                        'string'
-                          ? onNavigate(
-                              'participant-profile',
-                              participant.user
-                                ._id
-                            )
-                          : undefined
-                      }
-                      className="flex items-center gap-4 px-6 py-3.5 hover:bg-[#FAFAF7] cursor-pointer transition-colors"
-                    >
-
-                      {/* INITIALS */}
-
-                      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#5B6FD4] to-[#7B8EEA] flex items-center justify-center text-white text-xs font-bold shrink-0">
-                        {getInitials(
-                          name
-                        ) || 'P'}
-                      </div>
-
-                      {/* USER */}
-
-                      <div className="flex-1 min-w-0">
-
-                        <p className="text-sm font-medium text-[#1A1A2E]">
-                          {name}
-                        </p>
-
-                        <p className="text-xs text-[#9090A8] truncate">
-                          {email}
-                        </p>
-
-                      </div>
-
-                      {/* STATUS */}
-
-                      <StatusBadge
-                        status={
-                          participant.status
-                        }
-                      />
-
-                      {/* REGISTRATION */}
-
-                      <RegistrationBadge
-                        completed={
-                          participant.registrationCompleted
-                        }
-                      />
-
-                    </div>
-                  );
-                }
-              )}
-
-            </div>
-          )}
-
-        </div>
+        </div> */}
 
         {/* ================================================= */}
         {/* ACTIVITY FEED */}
         {/* ================================================= */}
 
-        <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft overflow-hidden">
+        {/* <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft overflow-hidden">
 
           <div className="px-5 py-4 border-b border-[#E8E8F0]">
 
@@ -1158,7 +835,7 @@ const activities: Activity[] = [
 
           </div>
 
-        </div>
+        </div> */}
 
       </div>
 
@@ -1231,9 +908,6 @@ const activities: Activity[] = [
                     Venue
                   </th>
 
-                  <th className="text-left px-6 py-3">
-                    Modules
-                  </th>
 
                 </tr>
 
@@ -1242,15 +916,6 @@ const activities: Activity[] = [
               <tbody className="divide-y divide-[#F0F0F8]">
 
                 {events.map((event) => {
-
-                  const enabledModules =
-                    event.modules
-                      ? Object.values(
-                          event.modules
-                        ).filter(
-                          Boolean
-                        ).length
-                      : 0;
 
                   return (
                     <tr
@@ -1304,10 +969,7 @@ const activities: Activity[] = [
 
                       <td className="px-6 py-3.5">
 
-                        <span className="text-xs bg-[#E6F4F1] text-[#3D9E8C] px-2.5 py-1 rounded-full font-medium">
-                          {enabledModules}{' '}
-                          enabled
-                        </span>
+                      
 
                       </td>
 
@@ -1328,7 +990,7 @@ const activities: Activity[] = [
       {/* ANNOUNCEMENTS */}
       {/* ================================================= */}
 
-      <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft overflow-hidden">
+      {/* <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft overflow-hidden">
 
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#E8E8F0]">
 
@@ -1363,106 +1025,22 @@ const activities: Activity[] = [
             Create an announcement to see it here.
           </p>
 
-          <button
-            onClick={() =>
-              onNavigate(
-                'announcements'
-              )
-            }
-            className="mt-4 gradient-primary text-white px-4 py-2 rounded-xl text-xs font-semibold hover:opacity-90"
-          >
-            Create Announcement
-          </button>
+            <button
+              onClick={() =>
+                onNavigate(
+                  'announcements'
+                )
+              }
+              className="mt-4 gradient-primary text-white px-4 py-2 rounded-xl text-xs font-semibold hover:opacity-90"
+            >
+              Create Announcement
+            </button>
 
         </div>
 
-      </div>
+      </div> */}
 
     </div>
   );
 }
 
-// =========================================================
-// STATUS BADGE
-// =========================================================
-
-function StatusBadge({
-  status,
-}: {
-  status: string;
-}) {
-  const map: Record<
-    string,
-    {
-      bg: string;
-      text: string;
-      label: string;
-    }
-  > = {
-    registered: {
-      bg: '#E6F4F1',
-      text: '#3D9E8C',
-      label: 'Registered',
-    },
-
-    accepted: {
-      bg: '#E6F4F1',
-      text: '#3D9E8C',
-      label: 'Accepted',
-    },
-
-    pending: {
-      bg: '#FEF3ED',
-      text: '#E8824A',
-      label: 'Pending',
-    },
-
-    cancelled: {
-      bg: '#FFF0F0',
-      text: '#D95B5B',
-      label: 'Cancelled',
-    },
-  };
-
-  const badge =
-    map[status] ||
-    map.pending;
-
-  return (
-    <span
-      className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0"
-      style={{
-        background:
-          badge.bg,
-        color:
-          badge.text,
-      }}
-    >
-      {badge.label}
-    </span>
-  );
-}
-
-// =========================================================
-// REGISTRATION BADGE
-// =========================================================
-
-function RegistrationBadge({
-  completed,
-}: {
-  completed?: boolean;
-}) {
-  if (completed) {
-    return (
-      <span className="text-xs w-6 h-6 rounded-full flex items-center justify-center font-medium shrink-0 bg-[#E6F4F1] text-[#3D9E8C]">
-        ✓
-      </span>
-    );
-  }
-
-  return (
-    <span className="text-xs w-6 h-6 rounded-full flex items-center justify-center font-medium shrink-0 bg-[#FEF3ED] text-[#E8824A]">
-      ⏳
-    </span>
-  );
-}

@@ -221,7 +221,7 @@ export default function Participants() {
       }
 
       setMessage(
-        "Invitation created successfully!"
+        "Invitation Sent successfully!"
       );
 
       setName("");

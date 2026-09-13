@@ -15,7 +15,7 @@ const navItems = [
   { id: 'announcements', label: 'Announcements', icon: '◉' },
   { id: 'documents', label: 'Documents', icon: '◧' },
   { id: 'chat', label: 'Messages', icon: '◫' },
-  { id: 'event-builder', label: 'Event Builder', icon: '◱' },
+  // { id: 'event-builder', label: 'Event Builder', icon: '◱' },
 ];
 
 export default function AdminLayout({ children, currentPage, onNavigate, onLogout, eventName }: AdminLayoutProps) {
