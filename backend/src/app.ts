@@ -18,12 +18,16 @@ const app = express();
 app.use(
   cors({
     origin: process.env.FRONTEND_URL || "http://localhost:5173",
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     credentials: true,
   })
 );
 
 app.use(express.json());
+
+//
+// API ROUTES
+//
 
 app.use("/api/announcements", announcementRoutes);
 app.use("/api/auth", authRoutes);
@@ -33,6 +37,20 @@ app.use("/api/invitations", invitationRoutes);
 app.use("/api/event-participants", eventParticipantRoutes);
 app.use("/api/documents", documentRoutes);
 app.use("/api/chat", chatRoutes);
+
+//
+// PRODUCTION ROUTES
+// These avoid Vercel's /api routing.
+//
+
+app.use("/announcements", announcementRoutes);
+app.use("/auth", authRoutes);
+app.use("/users", userRoutes);
+app.use("/events", eventRoutes);
+app.use("/invitations", invitationRoutes);
+app.use("/event-participants", eventParticipantRoutes);
+app.use("/documents", documentRoutes);
+app.use("/chat", chatRoutes);
 
 app.get("/", (_req, res) => {
   res.json({
