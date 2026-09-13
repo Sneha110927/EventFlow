@@ -10,7 +10,7 @@ import {
 } from "socket.io-client";
 
 const API_URL =
-  "http://localhost:5000";
+  "https://event-flow-nine.vercel.app";
 
 interface ParticipantChatProps {
   participantId: string;

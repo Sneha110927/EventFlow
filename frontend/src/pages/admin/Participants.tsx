@@ -73,7 +73,7 @@ export default function Participants() {
     }
 
     const response = await fetch(
-      "http://localhost:5000/api/event-participants",
+      "https://event-flow-nine.vercel.app/api/event-participants",
       {
         method: "GET",
         headers: {
@@ -105,7 +105,7 @@ export default function Participants() {
     }
 
     const response = await fetch(
-      "http://localhost:5000/api/events",
+      "https://event-flow-nine.vercel.app/api/events",
       {
         method: "GET",
         headers: {
@@ -195,7 +195,7 @@ export default function Participants() {
       }
 
       const response = await fetch(
-        "http://localhost:5000/api/invitations",
+        "https://event-flow-nine.vercel.app/api/invitations",
         {
           method: "POST",
           headers: {

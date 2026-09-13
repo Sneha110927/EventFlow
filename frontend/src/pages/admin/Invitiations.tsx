@@ -25,7 +25,7 @@ interface Invitation {
   token?: string;
 }
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'https://event-flow-nine.vercel.app/api';
 
 export default function Invitations() {
   const [tab, setTab] = useState<

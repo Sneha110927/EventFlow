@@ -297,3 +297,4 @@ export const mockDocumentRequests = [
   { id: 'dr-003', name: 'Travel Authorization Letter', required: false, deadline: '2026-10-01', submittedCount: 234, totalCount: 847 },
   { id: 'dr-004', name: 'Emergency Contact Form', required: true, deadline: '2026-09-30', submittedCount: 589, totalCount: 847 },
 ];
+

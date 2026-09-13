@@ -124,3 +124,4 @@ export default function AdminLayout({ children, currentPage, onNavigate, onLogou
     </div>
   );
 }
+

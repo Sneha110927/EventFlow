@@ -12,10 +12,10 @@ import {
 } from "socket.io-client";
 
 const API_URL =
-  "http://localhost:5000/api/chat";
+  "https://event-flow-nine.vercel.app/api/chat";
 
 const SOCKET_URL =
-  "http://localhost:5000";
+  "https://event-flow-nine.vercel.app";
 
 // =========================================================
 // TYPES

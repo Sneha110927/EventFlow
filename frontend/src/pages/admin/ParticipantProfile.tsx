@@ -302,3 +302,4 @@ function DocStatusBadge({ status }: { status: string }) {
   const s = map[status] || map.pending;
   return <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: s.bg, color: s.text }}>{s.label}</span>;
 }
+

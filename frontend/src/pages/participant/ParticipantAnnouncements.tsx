@@ -46,7 +46,7 @@ interface ParticipantAnnouncementsProps {
 }
 
 const API_BASE_URL =
-  'http://localhost:5000/api';
+  'https://event-flow-nine.vercel.app/api';
 
 export default function ParticipantAnnouncements({
   show,

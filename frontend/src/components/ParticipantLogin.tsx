@@ -57,7 +57,7 @@ export default function ParticipantLogin({
         );
 
         const response = await fetch(
-          `http://localhost:5000/api/invitations/accept/${invitationToken}`
+          `https://event-flow-nine.vercel.app/api/invitations/accept/${invitationToken}`
         );
 
         const data = await response.json();
@@ -169,7 +169,7 @@ export default function ParticipantLogin({
         );
 
         const response = await fetch(
-          `http://localhost:5000/api/invitations/${invitationToken}/send-otp`,
+          `https://event-flow-nine.vercel.app/api/invitations/${invitationToken}/send-otp`,
           {
             method: "POST",
 
@@ -218,7 +218,7 @@ export default function ParticipantLogin({
         );
 
         const response = await fetch(
-          "http://localhost:5000/api/auth/participant/send-otp",
+          "https://event-flow-nine.vercel.app/api/auth/participant/send-otp",
           {
             method: "POST",
 
@@ -324,7 +324,7 @@ export default function ParticipantLogin({
         );
 
         response = await fetch(
-          `http://localhost:5000/api/invitations/${invitationToken}/verify-otp`,
+          `https://event-flow-nine.vercel.app/api/invitations/${invitationToken}/verify-otp`,
           {
             method: "POST",
 
@@ -352,7 +352,7 @@ export default function ParticipantLogin({
         );
 
         response = await fetch(
-          "http://localhost:5000/api/auth/participant/verify-otp",
+          "https://event-flow-nine.vercel.app/api/auth/participant/verify-otp",
           {
             method: "POST",
 
@@ -484,7 +484,7 @@ export default function ParticipantLogin({
 
       if (isInvitationLogin) {
         response = await fetch(
-          `http://localhost:5000/api/invitations/${invitationToken}/send-otp`,
+          `https://event-flow-nine.vercel.app/api/invitations/${invitationToken}/send-otp`,
           {
             method: "POST",
 
@@ -506,7 +506,7 @@ export default function ParticipantLogin({
 
       else {
         response = await fetch(
-          "http://localhost:5000/api/auth/participant/send-otp",
+          "https://event-flow-nine.vercel.app/api/auth/participant/send-otp",
           {
             method: "POST",
 

@@ -202,10 +202,10 @@ interface SocketSendResult {
 }
 
 const API_BASE_URL =
-  'http://localhost:5000/api';
+  'https://event-flow-nine.vercel.app/api';
 
 const SOCKET_URL =
-  'http://localhost:5000';
+  'https://event-flow-nine.vercel.app';
 
 /*
 |--------------------------------------------------------------------------
@@ -254,7 +254,7 @@ async function apiRequest(
     )
   ) {
     throw new Error(
-      `Server returned an HTML page instead of JSON for ${url}. Make sure the EventFlow backend is running on http://localhost:5000.`
+      `Server returned an HTML page instead of JSON for ${url}. Make sure the EventFlow backend is running on https://event-flow-nine.vercel.app.`
     );
   }
 

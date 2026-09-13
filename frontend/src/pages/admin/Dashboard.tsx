@@ -125,7 +125,7 @@ export default function AdminDashboard({
         }
 
         const response = await fetch(
-          'http://localhost:5000/api/events',
+          'https://event-flow-nine.vercel.app/api/events',
           {
             method: 'GET',
             headers: {
@@ -185,7 +185,7 @@ export default function AdminDashboard({
         }
 
         const response = await fetch(
-          `http://localhost:5000/api/event-participants/event/${selectedEvent._id}`,
+          `https://event-flow-nine.vercel.app/api/event-participants/event/${selectedEvent._id}`,
           {
             method: 'GET',
             headers: {
@@ -233,7 +233,7 @@ export default function AdminDashboard({
         }
 
         const response = await fetch(
-          'http://localhost:5000/api/invitations',
+          'https://event-flow-nine.vercel.app/api/invitations',
           {
             method: 'GET',
             headers: {
@@ -1043,4 +1043,5 @@ export default function AdminDashboard({
     </div>
   );
 }
+
 
