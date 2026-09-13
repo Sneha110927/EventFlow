@@ -4,10 +4,7 @@ export interface IUser extends Document {
   name: string;
   email: string;
   mobile?: string;
-  password?: string;
   role: "admin" | "participant";
-  resetPasswordToken?: string;
-  resetPasswordExpires?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -34,26 +31,13 @@ const userSchema = new Schema<IUser>(
       sparse: true,
     },
 
-    password: {
-      type: String,
-      required: function () {
-        return this.role === "admin";
-      },
-    },
-
     role: {
       type: String,
       enum: ["admin", "participant"],
       default: "participant",
     },
 
-    resetPasswordToken: {
-      type: String,
-    },
-
-    resetPasswordExpires: {
-      type: Date,
-    },
+    
   },
   {
     timestamps: true,

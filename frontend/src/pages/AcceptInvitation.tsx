@@ -1,12 +1,13 @@
 import {
   useEffect,
   useState,
-} from 'react';
+} from "react";
 
 interface InvitationData {
   _id: string;
   name: string;
   email: string;
+
   event?: {
     _id: string;
     name: string;
@@ -22,50 +23,56 @@ interface AcceptInvitationProps {
   onAccepted: () => void;
 }
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL =
+  "http://localhost:5000/api";
 
 export default function AcceptInvitation({
   token,
   onAccepted,
 }: AcceptInvitationProps) {
-  /* ================================================================
-     STATE
-  ================================================================= */
+  // ==========================================================
+  // STATE
+  // ==========================================================
 
   const [invitation, setInvitation] =
     useState<InvitationData | null>(null);
 
-  const [mobile, setMobile] = useState('');
-  const [otp, setOtp] = useState('');
+  const [otp, setOtp] = useState("");
 
   const [step, setStep] =
     useState<
-      | 'loading'
-      | 'celebration'
-      | 'invitation'
-      | 'otp'
-      | 'success'
-      | 'error'
-    >('loading');
+      | "loading"
+      | "celebration"
+      | "invitation"
+      | "otp"
+      | "success"
+      | "error"
+    >("loading");
 
-  const [loading, setLoading] = useState(false);
-  const [verifying, setVerifying] = useState(false);
+  const [loading, setLoading] =
+    useState(false);
 
-  const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
+  const [verifying, setVerifying] =
+    useState(false);
+
+  const [error, setError] =
+    useState("");
+
+  const [message, setMessage] =
+    useState("");
 
   const [resendCooldown, setResendCooldown] =
     useState(0);
 
-  /* ================================================================
-     LOAD INVITATION
-  ================================================================= */
+  // ==========================================================
+  // LOAD INVITATION
+  // ==========================================================
 
   useEffect(() => {
     const loadInvitation = async () => {
       try {
-        setStep('loading');
-        setError('');
+        setStep("loading");
+        setError("");
 
         const response = await fetch(
           `${API_BASE_URL}/invitations/accept/${encodeURIComponent(
@@ -78,7 +85,7 @@ export default function AcceptInvitation({
         if (!response.ok) {
           throw new Error(
             data.message ||
-              'This invitation is invalid or has expired.'
+              "This invitation is invalid or has expired."
           );
         }
 
@@ -87,101 +94,113 @@ export default function AcceptInvitation({
 
         setInvitation(invitationData);
 
-        /*
-         * Invitation loaded successfully.
-         *
-         * Show the celebration animation first.
-         */
-        setStep('celebration');
+        // ------------------------------------------------------
+        // Show celebration first
+        // ------------------------------------------------------
 
-        /*
-         * After the celebration, show the mobile
-         * verification screen.
-         */
+        setStep("celebration");
+
         window.setTimeout(() => {
-          setStep('invitation');
+          setStep("invitation");
         }, 2200);
       } catch (err) {
         console.error(
-          'Load invitation error:',
+          "Load invitation error:",
           err
         );
 
         setError(
           err instanceof Error
             ? err.message
-            : 'Unable to load invitation.'
+            : "Unable to load invitation."
         );
 
-        setStep('error');
+        setStep("error");
       }
     };
 
     void loadInvitation();
   }, [token]);
 
-  /* ================================================================
-     RESEND COOLDOWN
-  ================================================================= */
+  // ==========================================================
+  // RESEND COOLDOWN
+  // ==========================================================
 
   useEffect(() => {
     if (resendCooldown <= 0) {
       return;
     }
 
-    const timer = window.setInterval(() => {
-      setResendCooldown((previous) =>
-        previous > 0 ? previous - 1 : 0
-      );
-    }, 1000);
+    const timer =
+      window.setInterval(() => {
+        setResendCooldown(
+          (previous) =>
+            previous > 0
+              ? previous - 1
+              : 0
+        );
+      }, 1000);
 
     return () => {
       window.clearInterval(timer);
     };
   }, [resendCooldown]);
 
-  /* ================================================================
-     FORMAT DATE
-  ================================================================= */
+  // ==========================================================
+  // FORMAT DATE
+  // ==========================================================
 
   const formatDate = (
     date?: string
   ) => {
     if (!date) {
-      return '';
+      return "";
     }
 
-    const parsedDate = new Date(date);
+    const parsedDate =
+      new Date(date);
 
-    if (Number.isNaN(parsedDate.getTime())) {
-      return '';
+    if (
+      Number.isNaN(
+        parsedDate.getTime()
+      )
+    ) {
+      return "";
     }
 
     return parsedDate.toLocaleDateString(
-      'en-US',
+      "en-US",
       {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
+        month: "short",
+        day: "numeric",
+        year: "numeric",
       }
     );
   };
 
-  /* ================================================================
-     SEND OTP
-  ================================================================= */
+  // ==========================================================
+  // SEND OTP
+  // ==========================================================
+  //
+  // IMPORTANT:
+  //
+  // We DO NOT ask the participant for their email.
+  //
+  // The backend finds the email from:
+  //
+  // invitation token → invitation.email
+  //
+  // ==========================================================
 
   const handleSendOTP = async () => {
-    setError('');
-    setMessage('');
+    setError("");
+    setMessage("");
 
-    const cleanMobile =
-      mobile.replace(/\D/g, '');
-
-    if (cleanMobile.length !== 10) {
+    if (!invitation?.email) {
       setError(
-        'Please enter a valid 10-digit mobile number.'
+        "Unable to determine the invitation email address."
       );
+
       return;
     }
 
@@ -193,68 +212,75 @@ export default function AcceptInvitation({
           token
         )}/send-otp`,
         {
-          method: 'POST',
+          method: "POST",
 
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type":
+              "application/json",
           },
 
-          body: JSON.stringify({
-            mobile: cleanMobile,
-          }),
+          /*
+           * No email.
+           * No mobile number.
+           *
+           * The backend gets the email
+           * directly from the invitation.
+           */
+          body: JSON.stringify({}),
         }
       );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
         throw new Error(
           data.message ||
-            'Failed to send OTP.'
+            "Failed to send OTP."
         );
       }
 
-      setMobile(cleanMobile);
-      setOtp('');
+      setOtp("");
 
       setMessage(
-        'OTP has been sent successfully.'
+        `A verification OTP has been sent to ${invitation.email}.`
       );
 
-      setStep('otp');
+      setStep("otp");
 
       setResendCooldown(30);
     } catch (err) {
       console.error(
-        'Send invitation OTP error:',
+        "Send invitation OTP error:",
         err
       );
 
       setError(
         err instanceof Error
           ? err.message
-          : 'Failed to send OTP.'
+          : "Failed to send OTP."
       );
     } finally {
       setLoading(false);
     }
   };
 
-  /* ================================================================
-     VERIFY OTP
-  ================================================================= */
+  // ==========================================================
+  // VERIFY OTP
+  // ==========================================================
 
   const handleVerifyOTP = async () => {
-    setError('');
-    setMessage('');
+    setError("");
+    setMessage("");
 
     const cleanOTP =
-      otp.replace(/\D/g, '');
+      otp.replace(/\D/g, "");
 
     if (cleanOTP.length !== 6) {
       setError(
-        'Please enter the 6-digit OTP.'
+        "Please enter the 6-digit OTP."
       );
+
       return;
     }
 
@@ -266,11 +292,22 @@ export default function AcceptInvitation({
           token
         )}/verify-otp`,
         {
-          method: 'POST',
+          method: "POST",
 
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type":
+              "application/json",
           },
+
+          /*
+           * Only OTP is sent.
+           *
+           * The backend already knows:
+           *
+           * invitation token
+           *       ↓
+           * invitation email
+           */
 
           body: JSON.stringify({
             otp: cleanOTP,
@@ -278,79 +315,92 @@ export default function AcceptInvitation({
         }
       );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
         throw new Error(
           data.message ||
-            'Invalid OTP. Please try again.'
+            "Invalid OTP. Please try again."
         );
       }
 
-      /* ============================================================
-         STORE AUTHENTICATION
-      ============================================================= */
+      // ======================================================
+      // STORE AUTHENTICATION
+      // ======================================================
 
       if (data.token) {
         localStorage.setItem(
-          'token',
+          "token",
           data.token
         );
       }
 
       if (data.user) {
         localStorage.setItem(
-          'user',
+          "user",
           JSON.stringify(data.user)
         );
       }
 
-      setStep('success');
+      if (data.event) {
+        localStorage.setItem(
+          "eventflow_participant_event",
+          JSON.stringify(data.event)
+        );
+      }
 
-      setMessage(
-        'Invitation accepted successfully!'
+      // Keep token for App.tsx
+      sessionStorage.setItem(
+        "eventflow_invitation_token",
+        token
       );
 
-      /*
-       * Give the success screen a moment to be visible,
-       * then move to participant dashboard.
-       */
+      setStep("success");
+
+      setMessage(
+        "Invitation accepted successfully!"
+      );
+
+      // ------------------------------------------------------
+      // Go to participant dashboard
+      // ------------------------------------------------------
 
       window.setTimeout(() => {
         onAccepted();
       }, 1000);
     } catch (err) {
       console.error(
-        'Verify invitation OTP error:',
+        "Verify invitation OTP error:",
         err
       );
 
       setError(
         err instanceof Error
           ? err.message
-          : 'Failed to verify OTP.'
+          : "Failed to verify OTP."
       );
     } finally {
       setVerifying(false);
     }
   };
 
-  /* ================================================================
-     BACK TO MOBILE
-  ================================================================= */
+  // ==========================================================
+  // BACK TO INVITATION
+  // ==========================================================
 
-  const handleBackToMobile = () => {
-    setOtp('');
-    setError('');
-    setMessage('');
-    setStep('invitation');
+  const handleBackToInvitation = () => {
+    setOtp("");
+    setError("");
+    setMessage("");
+    setStep("invitation");
   };
 
-  /* ================================================================
-     LOADING SCREEN
-  ================================================================= */
+  // ==========================================================
+  // LOADING SCREEN
+  // ==========================================================
 
-  if (step === 'loading') {
+  if (step === "loading") {
     return (
       <div className="min-h-screen bg-[#F8F8FC] flex items-center justify-center px-5">
 
@@ -372,17 +422,13 @@ export default function AcceptInvitation({
     );
   }
 
-  /* ================================================================
-     CELEBRATION ANIMATION
-  ================================================================= */
+  // ==========================================================
+  // CELEBRATION
+  // ==========================================================
 
-  if (step === 'celebration') {
+  if (step === "celebration") {
     return (
       <div className="relative min-h-screen overflow-hidden bg-[#F8F8FC] flex items-center justify-center px-5">
-
-        {/* ============================================================
-            ANIMATED BACKGROUND GLOW
-        ============================================================= */}
 
         <div className="absolute inset-0 pointer-events-none">
 
@@ -391,28 +437,24 @@ export default function AcceptInvitation({
           <div
             className="absolute bottom-[15%] right-[15%] w-48 h-48 bg-[#9B8AFB]/15 rounded-full blur-3xl animate-pulse"
             style={{
-              animationDelay: '500ms',
+              animationDelay:
+                "500ms",
             }}
           />
 
           <div
             className="absolute top-[35%] right-[25%] w-32 h-32 bg-[#7CCFC1]/15 rounded-full blur-3xl animate-pulse"
             style={{
-              animationDelay: '900ms',
+              animationDelay:
+                "900ms",
             }}
           />
 
         </div>
 
-        {/* ============================================================
-            MAIN CELEBRATION CARD
-        ============================================================= */}
-
         <div className="relative z-10 w-full max-w-lg">
 
           <div className="bg-white rounded-[32px] border border-[#E8E8F0] shadow-2xl p-8 text-center animate-[celebrateCard_700ms_ease-out]">
-
-            {/* CELEBRATION ICON */}
 
             <div className="relative mx-auto mb-6 w-20 h-20">
 
@@ -428,29 +470,21 @@ export default function AcceptInvitation({
 
             </div>
 
-            {/* EVENTFLOW */}
-
             <p className="text-xs font-bold tracking-[0.25em] text-[#7182DF] mb-3">
               EVENTFLOW
             </p>
-
-            {/* TITLE */}
 
             <h1 className="text-3xl sm:text-4xl font-semibold text-[#1A1A2E]">
               You're Invited!
             </h1>
 
-            {/* MESSAGE */}
-
             <p className="text-[#77778D] mt-3 leading-relaxed">
-              Hello{' '}
+              Hello{" "}
               <span className="font-semibold text-[#1A1A2E]">
                 {invitation?.name}
               </span>
               !
             </p>
-
-            {/* EVENT */}
 
             <div className="mt-5 px-5 py-3 rounded-2xl bg-[#F7F8FF] border border-[#E3E7FF]">
 
@@ -460,38 +494,21 @@ export default function AcceptInvitation({
 
               <p className="text-lg font-semibold text-[#1A1A2E] mt-1">
                 {invitation?.event?.name ||
-                  'the event'}
+                  "the event"}
               </p>
 
             </div>
 
-            {/* BOTTOM MESSAGE */}
-
             <p className="text-sm text-[#9090A8] mt-5">
               We're excited to have you join us.
             </p>
+
           </div>
 
         </div>
 
-        {/* ============================================================
-            ANIMATION KEYFRAMES
-        ============================================================= */}
-
         <style>
           {`
-            @keyframes sparkle {
-              0%, 100% {
-                opacity: 0.25;
-                transform: scale(0.7) rotate(0deg);
-              }
-
-              50% {
-                opacity: 1;
-                transform: scale(1.3) rotate(15deg);
-              }
-            }
-
             @keyframes celebrateCard {
               0% {
                 opacity: 0;
@@ -529,11 +546,11 @@ export default function AcceptInvitation({
     );
   }
 
-  /* ================================================================
-     ERROR SCREEN
-  ================================================================= */
+  // ==========================================================
+  // ERROR SCREEN
+  // ==========================================================
 
-  if (step === 'error') {
+  if (step === "error") {
     return (
       <div className="min-h-screen bg-[#F8F8FC] flex items-center justify-center px-5">
 
@@ -576,11 +593,11 @@ export default function AcceptInvitation({
     );
   }
 
-  /* ================================================================
-     SUCCESS SCREEN
-  ================================================================= */
+  // ==========================================================
+  // SUCCESS SCREEN
+  // ==========================================================
 
-  if (step === 'success') {
+  if (step === "success") {
     return (
       <div className="min-h-screen bg-[#F8F8FC] flex items-center justify-center px-5">
 
@@ -609,10 +626,10 @@ export default function AcceptInvitation({
           </h1>
 
           <p className="text-sm text-[#77778D] mt-3">
-            Welcome to{' '}
+            Welcome to{" "}
             <strong>
               {invitation?.event?.name ||
-                'the event'}
+                "the event"}
             </strong>
             .
           </p>
@@ -629,52 +646,20 @@ export default function AcceptInvitation({
     );
   }
 
-  /* ================================================================
-     MAIN INVITATION / MOBILE + OTP
-  ================================================================= */
+  // ==========================================================
+  // MAIN INVITATION PAGE
+  // ==========================================================
 
   return (
-    <div className="min-h-screen max-h-screen overflow-hidden bg-[#F8F8FC] flex items-center justify-center px-5 py-4">
+    <div className="min-h-screen bg-[#F8F8FC] flex items-center justify-center px-5 py-6">
 
       <div className="w-full max-w-xl">
 
-        {/* ============================================================
-            BRAND
-        ============================================================= */}
-
-        {/* <div className="text-center mb-7">
-
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-[#7182DF] text-white shadow-lg mb-3">
-
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-              />
-            </svg>
-
-          </div>
-
-          <p className="text-sm font-semibold tracking-wide text-[#7182DF]">
-            EVENTFLOW
-          </p>
-
-        </div> */}
-
-        {/* ============================================================
-            INVITATION CARD
-        ============================================================= */}
-
         <div className="bg-white rounded-[24px] border border-[#E8E8F0] shadow-xl overflow-hidden">
 
-          {/* TOP BANNER */}
+          {/* ====================================================
+              TOP BANNER
+              ==================================================== */}
 
           <div className="bg-[#7182DF] px-6 py-5 text-center text-white">
 
@@ -696,24 +681,22 @@ export default function AcceptInvitation({
 
             </div>
 
-            {/* <p className="text-xs font-medium text-white/80 mb-1">
-              You have been invited to
-            </p> */}
-
             <h1 className="text-2xl font-serif font-semibold">
               {invitation?.event?.name ||
-                'An Event'}
+                "An Event"}
             </h1>
 
           </div>
 
-          {/* CONTENT */}
+          {/* ====================================================
+              CONTENT
+              ==================================================== */}
 
           <div className="p-6">
 
             {/* GREETING */}
 
-            <div className="mb-4">
+            <div className="mb-5">
 
               <p className="text-[#77778D] text-xs">
                 Hello,
@@ -732,7 +715,7 @@ export default function AcceptInvitation({
             {/* EVENT DETAILS */}
 
             {invitation?.event && (
-              <div className="bg-[#F7F8FF] rounded-xl border border-[#E3E7FF] p-4 mb-4">
+              <div className="bg-[#F7F8FF] rounded-xl border border-[#E3E7FF] p-4 mb-5">
 
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-[#7182DF] mb-3">
                   Event Details
@@ -760,6 +743,7 @@ export default function AcceptInvitation({
                             strokeWidth={2}
                             d="M17.657 16.657L13.414 21.9a2 2 0 01-2.828 0l-4.243-5.243a8 8 0 1111.314 0z"
                           />
+
                           <path
                             strokeLinecap="round"
                             strokeLinejoin="round"
@@ -817,21 +801,29 @@ export default function AcceptInvitation({
                         </p>
 
                         <p className="text-xs font-semibold text-[#1A1A2E] mt-0.5">
+
                           {formatDate(
-                            invitation.event.startDate
+                            invitation.event
+                              .startDate
                           )}
 
-                          {invitation.event.endDate &&
-                            invitation.event.endDate !==
-                              invitation.event.startDate && (
+                          {invitation.event
+                            .endDate &&
+                            invitation.event
+                              .endDate !==
+                              invitation.event
+                                .startDate && (
                               <>
-                                {' '}
-                                –{' '}
+                                {" "}
+                                –{" "}
                                 {formatDate(
-                                  invitation.event.endDate
+                                  invitation
+                                    .event
+                                    .endDate
                                 )}
                               </>
                             )}
+
                         </p>
 
                       </div>
@@ -844,113 +836,102 @@ export default function AcceptInvitation({
               </div>
             )}
 
-            {/* ========================================================
-                STEP 1 — MOBILE NUMBER
-            ========================================================= */}
+            {/* ==================================================
+                STEP 1 — SEND OTP
+                ================================================== */}
 
-            {step === 'invitation' && (
+            {step === "invitation" && (
               <div>
 
-                <div className="mb-3">
-{/* 
-                  <h3 className="text-lg font-semibold text-[#1A1A2E]">
-                    Accept your invitation
-                  </h3>
+                <div className="bg-[#F7F8FF] border border-[#E3E7FF] rounded-xl p-4 mb-4">
 
-                  <p className="text-sm text-[#77778D] mt-1.5 leading-relaxed">
-                    Enter your mobile number to verify your
-                    identity and continue to your participant
-                    dashboard.
-                  </p> */}
+                  <div className="flex items-start gap-3">
 
-                </div>
+                    <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center flex-shrink-0">
 
-                {/* MOBILE INPUT */}
+                      <svg
+                        className="w-5 h-5 text-[#7182DF]"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M3 8l9 6 9-6M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                        />
+                      </svg>
 
-                <label className="block text-xs font-semibold text-[#1A1A2E] mb-2">
-                  Mobile Number
-                </label>
+                    </div>
 
-                <div className="flex">
+                    <div>
 
-                  <div className="flex items-center px-3 rounded-l-xl border border-r-0 border-[#E3E3ED] bg-[#F7F7FA] text-xs font-medium text-[#5A5A72]">
-                    +91
+                      <p className="text-xs font-semibold text-[#1A1A2E]">
+                        Verify your invitation
+                      </p>
+
+                      <p className="text-[11px] text-[#77778D] mt-1 leading-relaxed">
+                        We'll send a one-time verification code to the email address associated with this invitation.
+                      </p>
+
+                    </div>
+
                   </div>
 
-                  <input
-                    type="tel"
-                    value={mobile}
-                    onChange={(event) => {
-                      const value =
-                        event.target.value
-                          .replace(/\D/g, '')
-                          .slice(0, 10);
+                  <div className="mt-3 px-3 py-2.5 rounded-lg bg-white border border-[#E8E8F0]">
 
-                      setMobile(value);
-                      setError('');
-                    }}
-                    onKeyDown={(event) => {
-                      if (
-                        event.key === 'Enter'
-                      ) {
-                        event.preventDefault();
-                        void handleSendOTP();
-                      }
-                    }}
-                    placeholder="Enter 10-digit mobile number"
-                    inputMode="numeric"
-                    autoComplete="tel"
-                    className="flex-1 min-w-0 px-4 py-3 rounded-r-xl border border-[#E3E3ED] bg-white text-sm text-[#1A1A2E] outline-none focus:border-[#7182DF] focus:ring-2 focus:ring-[#7182DF]/10"
-                  />
+                    <p className="text-[10px] text-[#9090A8]">
+                      Verification email
+                    </p>
+
+                    <p className="text-xs font-semibold text-[#1A1A2E] mt-0.5 break-all">
+                      {invitation?.email}
+                    </p>
+
+                  </div>
 
                 </div>
-
-                <p className="text-[11px] text-[#9090A8] mt-1.5">
-                  We'll use this number for OTP verification.
-                </p>
 
                 {/* ERROR */}
 
                 {error && (
-                  <div className="mt-3 px-3 py-2.5 rounded-lg bg-[#FFF5F5] border border-[#F2D4D4] text-xs text-[#C65B5B]">
+                  <div className="mb-3 px-3 py-2.5 rounded-lg bg-[#FFF5F5] border border-[#F2D4D4] text-xs text-[#C65B5B]">
                     {error}
                   </div>
                 )}
 
-                {/* SEND BUTTON */}
+                {/* SEND OTP */}
 
                 <button
                   type="button"
                   onClick={() =>
                     void handleSendOTP()
                   }
-                  disabled={
-                    loading ||
-                    mobile.length !== 10
-                  }
-                  className="w-full mt-4 px-5 py-3 rounded-xl bg-[#7182DF] text-white text-sm font-semibold hover:bg-[#6072D5] transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={loading}
+                  className="w-full px-5 py-3 rounded-xl bg-[#7182DF] text-white text-sm font-semibold hover:bg-[#6072D5] transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading
-                    ? 'Sending OTP...'
-                    : 'Continue with Mobile Number'}
+                    ? "Sending OTP..."
+                    : "Send Verification OTP"}
                 </button>
 
               </div>
             )}
 
-            {/* ========================================================
+            {/* ==================================================
                 STEP 2 — OTP
-            ========================================================= */}
+                ================================================== */}
 
-            {step === 'otp' && (
+            {step === "otp" && (
               <div>
 
-                <div className="text-center mb-4">
+                <div className="text-center mb-5">
 
-                  <div className="w-10 h-10 rounded-xl bg-[#EEF2FF] flex items-center justify-center mx-auto mb-3">
+                  <div className="w-12 h-12 rounded-xl bg-[#EEF2FF] flex items-center justify-center mx-auto mb-3">
 
                     <svg
-                      className="w-5 h-5 text-[#7182DF]"
+                      className="w-6 h-6 text-[#7182DF]"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -959,25 +940,33 @@ export default function AcceptInvitation({
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2}
-                        d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H6a2 2 0 00-2 2v14a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2H6a2 2 0 00-2 2v14a2 2 0 002 2z"
+                        d="M3 8l9 6 9-6M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
                       />
                     </svg>
 
                   </div>
 
-                  <h3 className="text-base font-semibold text-[#1A1A2E]">
-                    Verify your mobile number
+                  <h3 className="text-lg font-semibold text-[#1A1A2E]">
+                    Enter your verification code
                   </h3>
 
                   <p className="text-xs text-[#77778D] mt-1.5">
-                    Enter the 6-digit OTP sent to
+                    We've sent a 6-digit OTP to
                   </p>
 
-                  <p className="text-sm font-semibold text-[#1A1A2E] mt-1">
-                    +91 {mobile}
+                  <p className="text-sm font-semibold text-[#1A1A2E] mt-1 break-all">
+                    {invitation?.email}
                   </p>
 
                 </div>
+
+                {/* MESSAGE */}
+
+                {message && (
+                  <div className="mb-3 px-3 py-2.5 rounded-lg bg-[#F0FAF7] border border-[#D2EEE6] text-xs text-[#3A8E7D]">
+                    {message}
+                  </div>
+                )}
 
                 {/* OTP INPUT */}
 
@@ -987,17 +976,19 @@ export default function AcceptInvitation({
                   onChange={(event) => {
                     const value =
                       event.target.value
-                        .replace(/\D/g, '')
+                        .replace(/\D/g, "")
                         .slice(0, 6);
 
                     setOtp(value);
-                    setError('');
+                    setError("");
                   }}
                   onKeyDown={(event) => {
                     if (
-                      event.key === 'Enter'
+                      event.key ===
+                      "Enter"
                     ) {
                       event.preventDefault();
+
                       void handleVerifyOTP();
                     }
                   }}
@@ -1006,6 +997,7 @@ export default function AcceptInvitation({
                   autoComplete="one-time-code"
                   maxLength={6}
                   autoFocus
+                  disabled={verifying}
                   className="w-full px-5 py-3.5 rounded-xl border border-[#E3E3ED] text-center text-xl tracking-[0.5em] font-semibold text-[#1A1A2E] outline-none focus:border-[#7182DF] focus:ring-2 focus:ring-[#7182DF]/10"
                 />
 
@@ -1014,14 +1006,6 @@ export default function AcceptInvitation({
                 {error && (
                   <div className="mt-3 px-3 py-2.5 rounded-lg bg-[#FFF5F5] border border-[#F2D4D4] text-xs text-[#C65B5B]">
                     {error}
-                  </div>
-                )}
-
-                {/* SUCCESS MESSAGE */}
-
-                {message && !error && (
-                  <div className="mt-3 px-3 py-2.5 rounded-lg bg-[#F0FAF7] border border-[#D2EEE6] text-xs text-[#3A8E7D]">
-                    {message}
                   </div>
                 )}
 
@@ -1039,8 +1023,8 @@ export default function AcceptInvitation({
                   className="w-full mt-4 px-5 py-3 rounded-xl bg-[#7182DF] text-white text-sm font-semibold hover:bg-[#6072D5] transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {verifying
-                    ? 'Verifying...'
-                    : 'Verify & Accept Invitation'}
+                    ? "Verifying..."
+                    : "Verify & Accept Invitation"}
                 </button>
 
                 {/* ACTIONS */}
@@ -1049,11 +1033,13 @@ export default function AcceptInvitation({
 
                   <button
                     type="button"
-                    onClick={handleBackToMobile}
+                    onClick={
+                      handleBackToInvitation
+                    }
                     disabled={verifying}
                     className="text-xs font-medium text-[#5A5A72] hover:text-[#7182DF] transition disabled:opacity-50"
                   >
-                    ← Change mobile number
+                    ← Back
                   </button>
 
                   <button
@@ -1069,7 +1055,7 @@ export default function AcceptInvitation({
                   >
                     {resendCooldown > 0
                       ? `Resend in ${resendCooldown}s`
-                      : 'Resend OTP'}
+                      : "Resend OTP"}
                   </button>
 
                 </div>

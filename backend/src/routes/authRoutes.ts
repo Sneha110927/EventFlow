@@ -2,60 +2,71 @@ import { Router } from "express";
 
 import {
   register,
-  login,
-  forgotPassword,
-  resetPassword,
-
-  // Participant OTP
-  sendParticipantOTP,
-  verifyParticipantOTP,
+  sendAdminLoginOTP,
+  verifyAdminLoginOTP,
+  sendParticipantLoginOTP,
+  verifyParticipantLoginOTP,
 } from "../controllers/authController";
-
 
 const router = Router();
 
-
 // ============================================================
-// ADMIN / GENERAL AUTH
+// GENERAL AUTH
 // ============================================================
 
+// Register
 router.post(
   "/register",
   register
 );
 
-router.post(
-  "/login",
-  login
-);
-
-router.post(
-  "/forgot-password",
-  forgotPassword
-);
-
-router.post(
-  "/reset-password/:token",
-  resetPassword
-);
-
-
 // ============================================================
-// PARTICIPANT PORTAL OTP
+// ADMIN EMAIL OTP LOGIN
 // ============================================================
 
-// Send OTP
+// Send OTP to admin email
+router.post(
+  "/admin/send-otp",
+  sendAdminLoginOTP
+);
+
+// Verify admin email OTP
+router.post(
+  "/admin/verify-otp",
+  verifyAdminLoginOTP
+);
+
+// ============================================================
+// PARTICIPANT EMAIL OTP LOGIN
+// ============================================================
+
+// Normal participant login from EventFlow main page
+//
+// POST /api/auth/participant/send-otp
+//
+// Body:
+// {
+//   "email": "participant@gmail.com"
+// }
+
 router.post(
   "/participant/send-otp",
-  sendParticipantOTP
+  sendParticipantLoginOTP
 );
 
+// Verify participant OTP
+//
+// POST /api/auth/participant/verify-otp
+//
+// Body:
+// {
+//   "email": "participant@gmail.com",
+//   "otp": "123456"
+// }
 
-// Verify OTP
 router.post(
   "/participant/verify-otp",
-  verifyParticipantOTP
+  verifyParticipantLoginOTP
 );
-
 
 export default router;

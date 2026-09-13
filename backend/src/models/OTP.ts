@@ -1,22 +1,31 @@
 import mongoose, { Document, Schema } from "mongoose";
 
 export interface IOTP extends Document {
-  mobile: string;
+  email: string;
+
   otpHash: string;
-  invitationToken: string;
-  name: string;
+
+  purpose:
+    | "admin-login"
+    | "participant-login";
+
+  invitationToken?: string;
+
   expiresAt: Date;
+
   attempts: number;
+
   createdAt: Date;
   updatedAt: Date;
 }
 
 const otpSchema = new Schema<IOTP>(
   {
-    mobile: {
+    email: {
       type: String,
       required: true,
       trim: true,
+      lowercase: true,
     },
 
     otpHash: {
@@ -24,16 +33,19 @@ const otpSchema = new Schema<IOTP>(
       required: true,
     },
 
-    invitationToken: {
+    purpose: {
       type: String,
+      enum: [
+        "admin-login",
+        "participant-login",
+      ],
       required: true,
-      index: true,
     },
 
-    name: {
+    invitationToken: {
       type: String,
-      required: true,
-      trim: true,
+      required: false,
+      index: true,
     },
 
     expiresAt: {
@@ -46,17 +58,23 @@ const otpSchema = new Schema<IOTP>(
       default: 0,
     },
   },
+
   {
     timestamps: true,
   }
 );
 
-// Automatically delete OTP after it expires
+// Automatically delete expired OTP records
 otpSchema.index(
   { expiresAt: 1 },
-  { expireAfterSeconds: 0 }
+  {
+    expireAfterSeconds: 0,
+  }
 );
 
-const OTP = mongoose.model<IOTP>("OTP", otpSchema);
+const OTP = mongoose.model<IOTP>(
+  "OTP",
+  otpSchema
+);
 
 export default OTP;

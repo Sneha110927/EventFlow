@@ -1,11 +1,9 @@
-
 import mongoose, { Document, Schema } from "mongoose";
 
 export interface IInvitation extends Document {
   event: mongoose.Types.ObjectId;
   email: string;
   name: string;
-  mobile?: string; // Mobile is entered by participant later
   invitedBy: mongoose.Types.ObjectId;
 
   status: "pending" | "accepted" | "expired";
@@ -35,14 +33,6 @@ const invitationSchema = new Schema<IInvitation>(
     name: {
       type: String,
       required: true,
-      trim: true,
-    },
-
-    // Mobile is NOT required when admin creates invitation.
-    // It will be saved when participant enters their mobile number.
-    mobile: {
-      type: String,
-      required: false,
       trim: true,
     },
 
