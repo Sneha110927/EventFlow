@@ -153,7 +153,7 @@ export const createInvitation = async (
     // -------------------------------------------------------
 
     const invitationLink =
-      `http://localhost:5173/accept-invitation?token=${token}`;
+  `${process.env.FRONTEND_URL || "http://localhost:5173"}/accept-invitation?token=${token}`;
 
     console.log(
       "📨 Invitation created:",
