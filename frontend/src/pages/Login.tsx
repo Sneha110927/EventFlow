@@ -19,6 +19,14 @@ export default function Login({
   const [success, setSuccess] = useState('');
 
   // ============================================================
+  // API BASE URL
+  // ============================================================
+
+  const API_BASE_URL =
+    import.meta.env.VITE_API_BASE_URL ||
+    'http://localhost:5000/api';
+
+  // ============================================================
   // SEND OTP
   // ============================================================
 
@@ -40,7 +48,7 @@ export default function Login({
 
     try {
       const response = await fetch(
-        'http://localhost:5000/api/auth/admin/send-otp',
+        `${API_BASE_URL}/auth/admin/send-otp`,
         {
           method: 'POST',
 
@@ -119,7 +127,7 @@ export default function Login({
     try {
 
       const response = await fetch(
-        'http://localhost:5000/api/auth/admin/verify-otp',
+        `${API_BASE_URL}/auth/admin/verify-otp`,
         {
           method: 'POST',
 
@@ -677,9 +685,9 @@ export default function Login({
           </form>
 
 
-          {/* ================================================= */}
+          {/* ================================================== */}
           {/* PARTICIPANT INFORMATION */}
-          {/* ================================================= */}
+          {/* ================================================== */}
 
           <div
             className="
