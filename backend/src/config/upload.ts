@@ -2,44 +2,75 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 
-const uploadDirectory = path.join(
-  process.cwd(),
-  "uploads",
-  "documents"
-);
+// =========================================================
+// UPLOAD DIRECTORY
+// =========================================================
+//
+// Local:
+//   backend/uploads/documents
+//
+// Vercel:
+//   /tmp/uploads/documents
+//
+// Vercel does not allow us to create permanent files inside
+// the deployed project directory, so we use /tmp in production.
+//
 
-// Create upload directory if it doesn't exist
+const uploadDirectory =
+  process.env.VERCEL === "1"
+    ? path.join("/tmp", "uploads", "documents")
+    : path.join(
+        process.cwd(),
+        "uploads",
+        "documents"
+      );
+
+// =========================================================
+// CREATE DIRECTORY
+// =========================================================
+
 if (!fs.existsSync(uploadDirectory)) {
   fs.mkdirSync(uploadDirectory, {
     recursive: true,
   });
 }
 
+// =========================================================
+// MULTER STORAGE
+// =========================================================
+
 const storage = multer.diskStorage({
   destination: (
-    req,
-    file,
+    _req,
+    _file,
     cb
   ) => {
     cb(null, uploadDirectory);
   },
 
   filename: (
-    req,
+    _req,
     file,
     cb
   ) => {
+    const extension =
+      path.extname(file.originalname);
+
     const uniqueName =
       `${Date.now()}-${Math.round(
         Math.random() * 1e9
-      )}${path.extname(file.originalname)}`;
+      )}${extension}`;
 
     cb(null, uniqueName);
   },
 });
 
+// =========================================================
+// FILE FILTER
+// =========================================================
+
 const fileFilter: multer.Options["fileFilter"] = (
-  req,
+  _req,
   file,
   cb
 ) => {
@@ -49,7 +80,11 @@ const fileFilter: multer.Options["fileFilter"] = (
     "image/png",
   ];
 
-  if (allowedTypes.includes(file.mimetype)) {
+  if (
+    allowedTypes.includes(
+      file.mimetype
+    )
+  ) {
     cb(null, true);
   } else {
     cb(
@@ -60,12 +95,23 @@ const fileFilter: multer.Options["fileFilter"] = (
   }
 };
 
+// =========================================================
+// MULTER
+// =========================================================
+
 const upload = multer({
   storage,
+
   fileFilter,
+
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10 MB
+    // 10 MB maximum
+    fileSize: 10 * 1024 * 1024,
   },
 });
+
+// =========================================================
+// EXPORT
+// =========================================================
 
 export default upload;
