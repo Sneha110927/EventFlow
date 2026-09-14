@@ -15,20 +15,51 @@ dotenv.config();
 
 const app = express();
 
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://event-flow-ep7i.vercel.app",
+];
+
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    origin: (origin, callback) => {
+      // Allow requests with no Origin header
+      // (Postman, curl, server-to-server requests, etc.)
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
+
+    methods: [
+      "GET",
+      "POST",
+      "PUT",
+      "PATCH",
+      "DELETE",
+      "OPTIONS",
+    ],
+
     credentials: true,
   })
 );
 
+/* =========================================================
+   MIDDLEWARE
+   ========================================================= */
+
 app.use(express.json());
 
-//
-// API ROUTES
-//
+/* =========================================================
+   API ROUTES
+   ========================================================= */
 
+// Local / traditional API routes
 app.use("/api/announcements", announcementRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
@@ -37,11 +68,6 @@ app.use("/api/invitations", invitationRoutes);
 app.use("/api/event-participants", eventParticipantRoutes);
 app.use("/api/documents", documentRoutes);
 app.use("/api/chat", chatRoutes);
-
-//
-// PRODUCTION ROUTES
-// These avoid Vercel's /api routing.
-//
 
 app.use("/announcements", announcementRoutes);
 app.use("/auth", authRoutes);
@@ -53,8 +79,15 @@ app.use("/documents", documentRoutes);
 app.use("/chat", chatRoutes);
 
 app.get("/", (_req, res) => {
-  res.json({
+  res.status(200).json({
     message: "EventFlow API is running 🚀",
+  });
+});
+
+app.get("/health", (_req, res) => {
+  res.status(200).json({
+    status: "ok",
+    message: "EventFlow backend is healthy 🚀",
   });
 });
 

@@ -5,18 +5,11 @@ import Event from "../models/Event";
 import User from "../models/User";
 import { AuthRequest } from "../middleware/authMiddleware";
 
-// =========================================================
-// GET ALL PARTICIPANTS
-// =========================================================
-
 export const getAllEventParticipants = async (
   req: AuthRequest,
   res: Response
 ) => {
   try {
-    // -------------------------------------------------------
-    // Check authentication
-    // -------------------------------------------------------
 
     if (!req.user) {
       return res.status(401).json({
@@ -24,19 +17,11 @@ export const getAllEventParticipants = async (
       });
     }
 
-    // -------------------------------------------------------
-    // Only admin can view all participants
-    // -------------------------------------------------------
-
     if (req.user.role !== "admin") {
       return res.status(403).json({
         message: "Only admins can view participants",
       });
     }
-
-    // -------------------------------------------------------
-    // Get all actual event participants
-    // -------------------------------------------------------
 
     const participants = await EventParticipant.find()
       .populate(
@@ -51,9 +36,6 @@ export const getAllEventParticipants = async (
         createdAt: -1,
       });
 
-    // -------------------------------------------------------
-    // Return participants
-    // -------------------------------------------------------
 
     return res.status(200).json({
       participants,
@@ -69,11 +51,6 @@ export const getAllEventParticipants = async (
     });
   }
 };
-
-
-// =========================================================
-// GET PARTICIPANTS OF AN EVENT
-// =========================================================
 
 export const getEventParticipants = async (
   req: AuthRequest,
@@ -162,11 +139,6 @@ export const getEventParticipants = async (
     });
   }
 };
-
-
-// =========================================================
-// GET EVENTS OF LOGGED-IN PARTICIPANT
-// =========================================================
 
 export const getMyEvents = async (
   req: AuthRequest,

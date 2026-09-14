@@ -7,10 +7,6 @@ import nodemailer from "nodemailer";
 import User from "../models/User";
 import OTP from "../models/OTP";
 
-// ============================================================
-// JWT HELPER
-// ============================================================
-
 const generateToken = (
   userId: string,
   role: "admin" | "participant"
@@ -32,10 +28,6 @@ const generateToken = (
     }
   );
 };
-
-// ============================================================
-// EMAIL TRANSPORTER
-// ============================================================
 
 const createEmailTransporter = () => {
   const emailUser = process.env.EMAIL_USER;
@@ -142,10 +134,6 @@ If you did not request this OTP, you can safely ignore this email.
   });
 };
 
-// ============================================================
-// REGISTER USER
-// ============================================================
-
 export const register = async (
   req: Request,
   res: Response
@@ -159,10 +147,6 @@ export const register = async (
       role,
     } = req.body;
 
-    // --------------------------------------------------------
-    // Validate required fields
-    // --------------------------------------------------------
-
     if (!name || !email || !password) {
       return res.status(400).json({
         message:
@@ -170,17 +154,10 @@ export const register = async (
       });
     }
 
-    // --------------------------------------------------------
-    // Normalize email
-    // --------------------------------------------------------
-
     const normalizedEmail =
       email.trim().toLowerCase();
 
-    // --------------------------------------------------------
-    // Check existing user
-    // --------------------------------------------------------
-
+  
     const existingUser =
       await User.findOne({
         email: normalizedEmail,
@@ -192,26 +169,16 @@ export const register = async (
           "User with this email already exists.",
       });
     }
-
-    // --------------------------------------------------------
     // Hash password
     // --------------------------------------------------------
 
     const hashedPassword =
       await bcrypt.hash(password, 10);
 
-    // --------------------------------------------------------
-    // Determine role
-    // --------------------------------------------------------
-
     const userRole =
       role === "admin"
         ? "admin"
         : "participant";
-
-    // --------------------------------------------------------
-    // Create user
-    // --------------------------------------------------------
 
     const user =
       await User.create({
@@ -226,10 +193,6 @@ export const register = async (
 
         role: userRole,
       });
-
-    // --------------------------------------------------------
-    // Response
-    // --------------------------------------------------------
 
     return res.status(201).json({
       message:
@@ -257,9 +220,6 @@ export const register = async (
   }
 };
 
-// ============================================================
-// ADMIN - SEND EMAIL OTP
-// ============================================================
 
 export const sendAdminLoginOTP =
   async (
@@ -268,9 +228,6 @@ export const sendAdminLoginOTP =
   ) => {
 
     try {
-      // ------------------------------------------------------
-      // Get email
-      // ------------------------------------------------------
 
       const email =
         req.body.email
@@ -283,10 +240,6 @@ export const sendAdminLoginOTP =
             "Email address is required.",
         });
       }
-
-      // ------------------------------------------------------
-      // Find admin
-      // ------------------------------------------------------
 
       const admin =
         await User.findOne({
@@ -301,9 +254,6 @@ export const sendAdminLoginOTP =
         });
       }
 
-      // ------------------------------------------------------
-      // Generate secure 6-digit OTP
-      // ------------------------------------------------------
 
       const otp =
         crypto
@@ -313,19 +263,11 @@ export const sendAdminLoginOTP =
           )
           .toString();
 
-      // ------------------------------------------------------
-      // Hash OTP
-      // ------------------------------------------------------
-
       const otpHash =
         await bcrypt.hash(
           otp,
           10
         );
-
-      // ------------------------------------------------------
-      // OTP expires after 5 minutes
-      // ------------------------------------------------------
 
       const expiresAt =
         new Date(
@@ -333,19 +275,11 @@ export const sendAdminLoginOTP =
             5 * 60 * 1000
         );
 
-      // ------------------------------------------------------
-      // Delete previous admin OTP
-      // ------------------------------------------------------
-
       await OTP.deleteMany({
         email,
         purpose:
           "admin-login",
       });
-
-      // ------------------------------------------------------
-      // Store OTP
-      // ------------------------------------------------------
 
       await OTP.create({
         email,
@@ -360,10 +294,6 @@ export const sendAdminLoginOTP =
         attempts: 0,
       });
 
-      // ------------------------------------------------------
-      // Send OTP through Gmail
-      // ------------------------------------------------------
-
       await sendOTPEmail(
         email,
         otp
@@ -372,10 +302,6 @@ export const sendAdminLoginOTP =
       console.log(
         `📧 Admin login OTP sent to ${email}`
       );
-
-      // ------------------------------------------------------
-      // Response
-      // ------------------------------------------------------
 
       return res.status(200).json({
         message:
@@ -395,10 +321,6 @@ export const sendAdminLoginOTP =
       });
     }
   };
-
-// ============================================================
-// ADMIN - VERIFY EMAIL OTP
-// ============================================================
 
 export const verifyAdminLoginOTP =
   async (
@@ -593,10 +515,6 @@ export const verifyAdminLoginOTP =
     }
   };
 
-  // ============================================================
-// PARTICIPANT - SEND EMAIL OTP
-// ============================================================
-
 export const sendParticipantLoginOTP =
   async (
     req: Request,
@@ -604,10 +522,6 @@ export const sendParticipantLoginOTP =
   ) => {
 
     try {
-      // ------------------------------------------------------
-      // Get email
-      // ------------------------------------------------------
-
       const email =
         req.body.email
           ?.trim()
@@ -619,10 +533,6 @@ export const sendParticipantLoginOTP =
             "Email address is required.",
         });
       }
-
-      // ------------------------------------------------------
-      // Find participant
-      // ------------------------------------------------------
 
       const participant =
         await User.findOne({
@@ -637,10 +547,6 @@ export const sendParticipantLoginOTP =
         });
       }
 
-      // ------------------------------------------------------
-      // Generate secure 6-digit OTP
-      // ------------------------------------------------------
-
       const otp =
         crypto
           .randomInt(
@@ -649,9 +555,6 @@ export const sendParticipantLoginOTP =
           )
           .toString();
 
-      // ------------------------------------------------------
-      // Hash OTP
-      // ------------------------------------------------------
 
       const otpHash =
         await bcrypt.hash(
@@ -659,30 +562,17 @@ export const sendParticipantLoginOTP =
           10
         );
 
-      // ------------------------------------------------------
-      // OTP expires after 5 minutes
-      // ------------------------------------------------------
-
       const expiresAt =
         new Date(
           Date.now() +
             5 * 60 * 1000
         );
 
-      // ------------------------------------------------------
-      // Delete previous participant OTP
-      // ------------------------------------------------------
-
       await OTP.deleteMany({
         email,
         purpose:
           "participant-login",
       });
-
-      // ------------------------------------------------------
-      // Store OTP
-      // ------------------------------------------------------
-
       await OTP.create({
         email,
 
@@ -696,10 +586,6 @@ export const sendParticipantLoginOTP =
         attempts: 0,
       });
 
-      // ------------------------------------------------------
-      // Send OTP through Gmail
-      // ------------------------------------------------------
-
       await sendOTPEmail(
         email,
         otp
@@ -708,10 +594,6 @@ export const sendParticipantLoginOTP =
       console.log(
         `📧 Participant login OTP sent to ${email}`
       );
-
-      // ------------------------------------------------------
-      // Response
-      // ------------------------------------------------------
 
       return res.status(200).json({
         message:
@@ -732,10 +614,6 @@ export const sendParticipantLoginOTP =
     }
   };
 
-  // ============================================================
-// PARTICIPANT - VERIFY EMAIL OTP
-// ============================================================
-
 export const verifyParticipantLoginOTP =
   async (
     req: Request,
@@ -743,9 +621,6 @@ export const verifyParticipantLoginOTP =
   ) => {
 
     try {
-      // ------------------------------------------------------
-      // Get email and OTP
-      // ------------------------------------------------------
 
       const email =
         req.body.email
@@ -756,9 +631,7 @@ export const verifyParticipantLoginOTP =
         req.body.otp
           ?.trim();
 
-      // ------------------------------------------------------
-      // Validate input
-      // ------------------------------------------------------
+   
 
       if (!email || !otp) {
         return res.status(400).json({
@@ -774,9 +647,7 @@ export const verifyParticipantLoginOTP =
         });
       }
 
-      // ------------------------------------------------------
-      // Find participant
-      // ------------------------------------------------------
+    
 
       const participant =
         await User.findOne({
@@ -790,10 +661,6 @@ export const verifyParticipantLoginOTP =
             "Participant account not found.",
         });
       }
-
-      // ------------------------------------------------------
-      // Find latest participant OTP
-      // ------------------------------------------------------
 
       const otpRecord =
         await OTP.findOne({
@@ -811,10 +678,6 @@ export const verifyParticipantLoginOTP =
         });
       }
 
-      // ------------------------------------------------------
-      // Check expiry
-      // ------------------------------------------------------
-
       if (
         otpRecord.expiresAt.getTime() <
         Date.now()
@@ -830,10 +693,6 @@ export const verifyParticipantLoginOTP =
         });
       }
 
-      // ------------------------------------------------------
-      // Check maximum attempts
-      // ------------------------------------------------------
-
       if (
         otpRecord.attempts >= 5
       ) {
@@ -848,19 +707,11 @@ export const verifyParticipantLoginOTP =
         });
       }
 
-      // ------------------------------------------------------
-      // Compare OTP
-      // ------------------------------------------------------
-
       const isValid =
         await bcrypt.compare(
           otp,
           otpRecord.otpHash
         );
-
-      // ------------------------------------------------------
-      // Invalid OTP
-      // ------------------------------------------------------
 
       if (!isValid) {
 
@@ -874,17 +725,9 @@ export const verifyParticipantLoginOTP =
         });
       }
 
-      // ------------------------------------------------------
-      // OTP is valid
-      // ------------------------------------------------------
-
       await OTP.deleteOne({
         _id: otpRecord._id,
       });
-
-      // ------------------------------------------------------
-      // Generate JWT
-      // ------------------------------------------------------
 
       const token =
         generateToken(

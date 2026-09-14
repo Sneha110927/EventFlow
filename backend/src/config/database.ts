@@ -8,7 +8,6 @@ const connectDatabase = async (): Promise<void> => {
       throw new Error("MONGO_URI is not defined");
     }
 
-    // Reuse existing connection in Vercel/serverless environment
     if (mongoose.connection.readyState === 1) {
       return;
     }

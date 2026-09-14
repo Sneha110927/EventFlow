@@ -18,54 +18,37 @@ import {
 
 const router = Router();
 
-/*
-|--------------------------------------------------------------------------
-| Admin document management
-|--------------------------------------------------------------------------
-*/
-
-// Events available for document management
 router.get(
   "/events",
   authMiddleware,
   getDocumentEvents
 );
 
-// Participants belonging to an event
 router.get(
   "/participants",
   authMiddleware,
   getDocumentParticipants
 );
 
-// Create document request
+
 router.post(
   "/requests",
   authMiddleware,
   createDocumentRequest
 );
 
-// Get document requests
+
 router.get(
   "/requests",
   authMiddleware,
   getDocumentRequests
 );
 
-/*
-|--------------------------------------------------------------------------
-| Participant document management
-|--------------------------------------------------------------------------
-*/
-
-// Participant's own document requests
 router.get(
   "/my-requests",
   authMiddleware,
   getMyDocumentRequests
 );
-
-// Participant uploads document
 router.post(
   "/upload",
   authMiddleware,
@@ -73,47 +56,32 @@ router.post(
   uploadDocument
 );
 
-// Participant's own uploaded documents
 router.get(
   "/my-documents",
   authMiddleware,
   getMyDocuments
 );
 
-/*
-|--------------------------------------------------------------------------
-| Admin document list
-|--------------------------------------------------------------------------
-*/
 
-// All documents
 router.get(
   "/",
   authMiddleware,
   getAllDocuments
 );
 
-/*
-|--------------------------------------------------------------------------
-| Document actions
-|--------------------------------------------------------------------------
-*/
 
-// Approve
 router.put(
   "/:id/approve",
   authMiddleware,
   approveDocument
 );
 
-// Reject
 router.put(
   "/:id/reject",
   authMiddleware,
   rejectDocument
 );
 
-// Download
 router.get(
   "/:id/download",
   authMiddleware,

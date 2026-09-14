@@ -16,46 +16,40 @@ import {
 
 const router = Router();
 
-// =========================================================
-// EVENT ROUTES
-// =========================================================
 
-// Create event
 router.post(
   "/",
   authMiddleware,
   createEvent
 );
 
-// Get all events
+
 router.get(
   "/",
   authMiddleware,
   getEvents
 );
 
-// Get events for logged-in participant
 router.get(
   "/my-events",
   authMiddleware,
   getMyEvents
 );
 
-// Get one event
+
 router.get(
   "/:id",
   authMiddleware,
   getEventById
 );
 
-// Update event
 router.put(
   "/:id",
   authMiddleware,
   updateEvent
 );
 
-// Delete event
+
 router.delete(
   "/:id",
   authMiddleware,

@@ -13,10 +13,6 @@ interface AuthenticatedRequest
   };
 }
 
-// ============================================================
-// CREATE ANNOUNCEMENT
-// ============================================================
-
 export const createAnnouncement = async (
   req: AuthenticatedRequest,
   res: Response
@@ -80,10 +76,6 @@ export const createAnnouncement = async (
   }
 };
 
-// ============================================================
-// GET ADMIN ANNOUNCEMENTS
-// ============================================================
-
 export const getAdminAnnouncements = async (
   req: AuthenticatedRequest,
   res: Response
@@ -117,10 +109,6 @@ export const getAdminAnnouncements = async (
   }
 };
 
-// ============================================================
-// GET PARTICIPANT ANNOUNCEMENTS
-// ============================================================
-
 export const getParticipantAnnouncements = async (
   req: AuthenticatedRequest,
   res: Response
@@ -133,8 +121,7 @@ export const getParticipantAnnouncements = async (
   return;
 } 
 
-    // Find all events this participant belongs to
-    const participations = await EventParticipant.find({
+const participations = await EventParticipant.find({
       user: req.user.userId,
     }).select("event status");
 
@@ -156,12 +143,10 @@ export const getParticipantAnnouncements = async (
         .sort({ createdAt: -1 });
 
       for (const announcement of eventAnnouncements) {
-        // Everyone in the event receives "all"
         if (announcement.target === "all") {
           announcements.push(announcement);
         }
 
-        // "Confirmed Only" = EventParticipant status "accepted"
         else if (
           announcement.target === "confirmed" &&
           participation.status === "accepted"
@@ -169,7 +154,6 @@ export const getParticipantAnnouncements = async (
           announcements.push(announcement);
         }
 
-        // "Pending Only" = EventParticipant status "pending"
         else if (
           announcement.target === "pending" &&
           participation.status === "pending"
@@ -190,10 +174,6 @@ export const getParticipantAnnouncements = async (
     });
   }
 };
-
-// ============================================================
-// MARK ANNOUNCEMENT AS READ
-// ============================================================
 
 export const markAnnouncementAsRead = async (
   req: AuthenticatedRequest,

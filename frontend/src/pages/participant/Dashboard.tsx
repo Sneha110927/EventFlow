@@ -2031,11 +2031,8 @@ export default function ParticipantDashboard({
     },
   ];
 
-  /*
-  |--------------------------------------------------------------------------
-  | REGISTRATION PROGRESS
-  |--------------------------------------------------------------------------
-  */
+
+
 
   const progress = [
     {
@@ -2502,9 +2499,9 @@ export default function ParticipantDashboard({
 
             <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-6">
 
-              <h3 className="font-semibold text-[#1A1A2E] mb-4">
+              {/* <h3 className="font-semibold text-[#1A1A2E] mb-4">
                 Registration Progress
-              </h3>
+              </h3> */}
 
               <div className="space-y-3">
 

@@ -14,19 +14,11 @@ import { AuthRequest } from "../middleware/authMiddleware";
 import { sendInvitationEmail } from "../services/emailService";
 import { generateAndStoreEmailOTP } from "../services/otp";
 
-// =========================================================
-// CREATE INVITATION
-// =========================================================
-
 export const createInvitation = async (
   req: AuthRequest,
   res: Response
 ) => {
   try {
-
-    // -------------------------------------------------------
-    // AUTHENTICATION
-    // -------------------------------------------------------
 
     if (!req.user) {
       return res.status(401).json({
@@ -35,9 +27,6 @@ export const createInvitation = async (
       });
     }
 
-    // -------------------------------------------------------
-    // ADMIN CHECK
-    // -------------------------------------------------------
 
     if (req.user.role !== "admin") {
       return res.status(403).json({
@@ -45,10 +34,6 @@ export const createInvitation = async (
           "Only admins can send invitations",
       });
     }
-
-    // -------------------------------------------------------
-    // REQUEST DATA
-    // -------------------------------------------------------
 
     const {
       name,
@@ -72,10 +57,6 @@ export const createInvitation = async (
         .trim()
         .toLowerCase();
 
-    // -------------------------------------------------------
-    // VALIDATE EMAIL
-    // -------------------------------------------------------
-
     if (
       !normalizedEmail.includes("@")
     ) {
@@ -85,9 +66,6 @@ export const createInvitation = async (
       });
     }
 
-    // -------------------------------------------------------
-    // FIND EVENT
-    // -------------------------------------------------------
 
     const event =
       await Event.findById(
@@ -101,29 +79,18 @@ export const createInvitation = async (
       });
     }
 
-    // -------------------------------------------------------
-    // GENERATE INVITATION TOKEN
-    // -------------------------------------------------------
 
     const token =
       crypto
         .randomBytes(32)
         .toString("hex");
 
-    // -------------------------------------------------------
-    // EXPIRATION
-    // 7 DAYS
-    // -------------------------------------------------------
 
     const expiresAt =
       new Date(
         Date.now() +
         7 * 24 * 60 * 60 * 1000
       );
-
-    // -------------------------------------------------------
-    // CREATE INVITATION
-    // -------------------------------------------------------
 
     const invitation =
       await Invitation.create({
@@ -148,10 +115,6 @@ export const createInvitation = async (
         expiresAt,
       });
 
-    // -------------------------------------------------------
-    // CREATE PARTICIPANT INVITATION LINK
-    // -------------------------------------------------------
-
     const invitationLink =
   `${process.env.FRONTEND_URL || "http://localhost:5173"}/accept-invitation?token=${token}`;
 
@@ -172,9 +135,6 @@ export const createInvitation = async (
       }
     );
 
-    // -------------------------------------------------------
-    // SEND EMAIL
-    // -------------------------------------------------------
 
     await sendInvitationEmail({
 
@@ -189,10 +149,6 @@ export const createInvitation = async (
 
       invitationLink,
     });
-
-    // -------------------------------------------------------
-    // SUCCESS
-    // -------------------------------------------------------
 
     return res.status(201).json({
 
@@ -216,9 +172,6 @@ export const createInvitation = async (
   }
 };
 
-// =========================================================
-// GET ALL INVITATIONS
-// =========================================================
 
 export const getInvitations = async (
   req: AuthRequest,
@@ -274,10 +227,6 @@ export const getInvitations = async (
   }
 };
 
-// =========================================================
-// GET INVITATION BY TOKEN
-// =========================================================
-
 export const getInvitationByToken = async (
   req: AuthRequest,
   res: Response
@@ -313,10 +262,6 @@ export const getInvitationByToken = async (
       });
     }
 
-    // -------------------------------------------------------
-    // CHECK EXPIRATION
-    // -------------------------------------------------------
-
     if (
       invitation.status === "pending" &&
       invitation.expiresAt <
@@ -337,12 +282,6 @@ export const getInvitationByToken = async (
           "This invitation has expired",
       });
     }
-
-    // -------------------------------------------------------
-    // IMPORTANT:
-    // Do NOT reject accepted invitations here if you want
-    // participants to be able to return later.
-    // -------------------------------------------------------
 
     return res.status(200).json({
 
@@ -382,10 +321,6 @@ export const getInvitationByToken = async (
   }
 };
 
-// =========================================================
-// SEND EMAIL OTP FOR INVITATION
-// =========================================================
-
 export const sendInvitationOTP = async (
   req: AuthRequest,
   res: Response
@@ -406,10 +341,6 @@ export const sendInvitationOTP = async (
       });
     }
 
-    // -------------------------------------------------------
-    // FIND INVITATION
-    // -------------------------------------------------------
-
     const invitation =
       await Invitation.findOne({
         token,
@@ -421,10 +352,6 @@ export const sendInvitationOTP = async (
           "Invitation not found",
       });
     }
-
-    // -------------------------------------------------------
-    // CHECK EXPIRATION
-    // -------------------------------------------------------
 
     if (
       invitation.status !==
@@ -449,10 +376,6 @@ export const sendInvitationOTP = async (
       });
     }
 
-    // -------------------------------------------------------
-    // GET EMAIL FROM INVITATION
-    // -------------------------------------------------------
-
     const email =
       invitation.email
         .trim()
@@ -465,19 +388,11 @@ export const sendInvitationOTP = async (
       });
     }
 
-    // -------------------------------------------------------
-    // GENERATE OTP
-    // -------------------------------------------------------
-
     await generateAndStoreEmailOTP(
       email,
       "participant-login",
       token
     );
-
-    // -------------------------------------------------------
-    // SUCCESS
-    // -------------------------------------------------------
 
     return res.status(200).json({
 
@@ -503,8 +418,6 @@ export const sendInvitationOTP = async (
     });
   }
 };
-
-// =========================================================
 // VERIFY INVITATION EMAIL OTP
 // =========================================================
 
@@ -526,20 +439,12 @@ export const verifyInvitationOTP = async (
         ?.toString()
         .trim();
 
-    // -------------------------------------------------------
-    // VALIDATE TOKEN
-    // -------------------------------------------------------
-
     if (!token) {
       return res.status(400).json({
         message:
           "Invitation token is required",
       });
     }
-
-    // -------------------------------------------------------
-    // VALIDATE OTP
-    // -------------------------------------------------------
 
     if (!otp) {
       return res.status(400).json({
@@ -557,10 +462,6 @@ export const verifyInvitationOTP = async (
       });
     }
 
-    // -------------------------------------------------------
-    // FIND INVITATION
-    // -------------------------------------------------------
-
     const invitation =
       await Invitation.findOne({
         token,
@@ -573,9 +474,6 @@ export const verifyInvitationOTP = async (
       });
     }
 
-    // -------------------------------------------------------
-    // CHECK EXPIRATION
-    // -------------------------------------------------------
 
     if (
       invitation.status !==
@@ -600,18 +498,11 @@ export const verifyInvitationOTP = async (
       });
     }
 
-    // -------------------------------------------------------
-    // EMAIL FROM INVITATION
-    // -------------------------------------------------------
-
     const email =
       invitation.email
         .trim()
         .toLowerCase();
 
-    // -------------------------------------------------------
-    // FIND OTP
-    // -------------------------------------------------------
 
     const otpRecord =
       await OTP.findOne({
@@ -635,10 +526,6 @@ export const verifyInvitationOTP = async (
       });
     }
 
-    // -------------------------------------------------------
-    // CHECK OTP EXPIRATION
-    // -------------------------------------------------------
-
     if (
       otpRecord.expiresAt <
       new Date()
@@ -654,11 +541,6 @@ export const verifyInvitationOTP = async (
           "OTP has expired. Please request a new OTP.",
       });
     }
-
-    // -------------------------------------------------------
-    // MAX ATTEMPTS
-    // -------------------------------------------------------
-
     if (
       otpRecord.attempts >= 5
     ) {
@@ -673,10 +555,6 @@ export const verifyInvitationOTP = async (
           "Too many incorrect attempts. Please request a new OTP.",
       });
     }
-
-    // -------------------------------------------------------
-    // VERIFY OTP
-    // -------------------------------------------------------
 
     const isValidOTP =
       await bcrypt.compare(
@@ -701,18 +579,10 @@ export const verifyInvitationOTP = async (
       });
     }
 
-    // -------------------------------------------------------
-    // OTP VALID
-    // -------------------------------------------------------
-
-    await OTP.deleteOne({
+     await OTP.deleteOne({
       _id:
         otpRecord._id,
     });
-
-    // -------------------------------------------------------
-    // FIND OR CREATE PARTICIPANT
-    // -------------------------------------------------------
 
     let user =
       await User.findOne({
@@ -740,7 +610,6 @@ export const verifyInvitationOTP = async (
 
     } else {
 
-      // Update name if necessary
       if (
         invitation.name &&
         user.name !==
@@ -754,9 +623,6 @@ export const verifyInvitationOTP = async (
       }
     }
 
-    // -------------------------------------------------------
-    // EVENT PARTICIPANT
-    // -------------------------------------------------------
 
     let eventParticipant =
       await EventParticipant.findOne({
@@ -791,9 +657,6 @@ export const verifyInvitationOTP = async (
 
     }
 
-    // -------------------------------------------------------
-    // MARK INVITATION ACCEPTED
-    // -------------------------------------------------------
 
     if (
       invitation.status !==
@@ -806,9 +669,6 @@ export const verifyInvitationOTP = async (
       await invitation.save();
     }
 
-    // -------------------------------------------------------
-    // JWT
-    // -------------------------------------------------------
 
     const jwtSecret =
       process.env.JWT_SECRET;
@@ -838,9 +698,6 @@ export const verifyInvitationOTP = async (
         }
       );
 
-    // -------------------------------------------------------
-    // SUCCESS
-    // -------------------------------------------------------
 
     return res.status(200).json({
 
@@ -880,9 +737,6 @@ export const verifyInvitationOTP = async (
   }
 };
 
-// =========================================================
-// DELETE INVITATION / REMOVE PARTICIPANT
-// =========================================================
 
 export const deleteInvitation = async (
   req: AuthRequest,
@@ -890,20 +744,12 @@ export const deleteInvitation = async (
 ) => {
   try {
 
-    // -------------------------------------------------------
-    // AUTHENTICATION
-    // -------------------------------------------------------
-
     if (!req.user) {
       return res.status(401).json({
         message:
           "Authentication required",
       });
     }
-
-    // -------------------------------------------------------
-    // ADMIN CHECK
-    // -------------------------------------------------------
 
     if (
       req.user.role !==
@@ -914,10 +760,6 @@ export const deleteInvitation = async (
           "Only admins can remove participants",
       });
     }
-
-    // -------------------------------------------------------
-    // GET INVITATION ID
-    // -------------------------------------------------------
 
     const invitationId =
       Array.isArray(
@@ -933,10 +775,6 @@ export const deleteInvitation = async (
       });
     }
 
-    // -------------------------------------------------------
-    // FIND INVITATION
-    // -------------------------------------------------------
-
     const invitation =
       await Invitation.findById(
         invitationId
@@ -949,17 +787,10 @@ export const deleteInvitation = async (
       });
     }
 
-    // -------------------------------------------------------
-    // EVENT
-    // -------------------------------------------------------
-
     const eventId =
       invitation.event;
 
-    // -------------------------------------------------------
-    // FIND PARTICIPANT
-    // -------------------------------------------------------
-
+  
     const participant =
       await User.findOne({
 
@@ -970,9 +801,6 @@ export const deleteInvitation = async (
           "participant",
       });
 
-    // -------------------------------------------------------
-    // REMOVE PARTICIPANT FROM EVENT
-    // -------------------------------------------------------
 
     if (participant) {
 
@@ -992,10 +820,6 @@ export const deleteInvitation = async (
       );
     }
 
-    // -------------------------------------------------------
-    // DELETE OTP RECORDS
-    // -------------------------------------------------------
-
     const otpResult =
       await OTP.deleteMany({
 
@@ -1008,9 +832,6 @@ export const deleteInvitation = async (
       otpResult.deletedCount
     );
 
-    // -------------------------------------------------------
-    // DELETE INVITATION
-    // -------------------------------------------------------
 
     const invitationResult =
       await Invitation.deleteOne({
@@ -1024,7 +845,6 @@ export const deleteInvitation = async (
       invitationResult.deletedCount
     );
 
-    // -------------------------------------------------------
     // SUCCESS
     // -------------------------------------------------------
 
@@ -1056,13 +876,6 @@ export const deleteInvitation = async (
   }
 };
 
-// =========================================================
-// ACCEPT INVITATION
-// =========================================================
-//
-// Old password-based acceptance is removed.
-// Participant now uses email OTP.
-// =========================================================
 
 export const acceptInvitation = async (
   req: AuthRequest,

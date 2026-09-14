@@ -9,10 +9,6 @@ import EventParticipant from "../models/EventParticipant";
 
 import { AuthRequest } from "../middleware/authMiddleware";
 
-// ============================================================
-// HELPER - GET STRING PARAMETER
-// ============================================================
-
 const getStringParam = (
   value: string | string[] | undefined
 ): string | undefined => {
@@ -23,30 +19,18 @@ const getStringParam = (
   return value;
 };
 
-// ============================================================
-// GET EVENTS FOR DOCUMENT REQUEST
-// ADMIN
-// ============================================================
-
 export const getDocumentEvents = async (
   req: AuthRequest,
   res: Response
 ) => {
   console.log("🔥 GET /api/documents/events HIT");
   try {
-    // --------------------------------------------------------
-    // Authentication
-    // --------------------------------------------------------
-
     if (!req.user) {
       return res.status(401).json({
         message: "Authentication required",
       });
     }
 
-    // --------------------------------------------------------
-    // Admin only
-    // --------------------------------------------------------
 
     if (req.user.role !== "admin") {
       return res.status(403).json({
@@ -54,10 +38,6 @@ export const getDocumentEvents = async (
           "Only admins can view document events",
       });
     }
-
-    // --------------------------------------------------------
-    // Get events
-    // --------------------------------------------------------
 
     const events = await Event.find()
       .select("_id name type")
@@ -80,30 +60,18 @@ export const getDocumentEvents = async (
   }
 };
 
-// ============================================================
-// GET PARTICIPANTS FOR DOCUMENT REQUEST
-// ADMIN
-// ============================================================
-
 export const getDocumentParticipants =
   async (
     req: AuthRequest,
     res: Response
   ) => {
     try {
-      // --------------------------------------------------------
-      // Authentication
-      // --------------------------------------------------------
-
+      
       if (!req.user) {
         return res.status(401).json({
           message: "Authentication required",
         });
       }
-
-      // --------------------------------------------------------
-      // Admin only
-      // --------------------------------------------------------
 
       if (req.user.role !== "admin") {
         return res.status(403).json({
@@ -111,10 +79,6 @@ export const getDocumentParticipants =
             "Only admins can view participants",
         });
       }
-
-      // --------------------------------------------------------
-      // Event ID
-      // --------------------------------------------------------
 
       const eventId =
         typeof req.query.eventId === "string"
@@ -127,10 +91,6 @@ export const getDocumentParticipants =
         });
       }
 
-      // --------------------------------------------------------
-      // Validate event ID
-      // --------------------------------------------------------
-
       if (
         !mongoose.Types.ObjectId.isValid(
           eventId
@@ -141,10 +101,6 @@ export const getDocumentParticipants =
         });
       }
 
-      // --------------------------------------------------------
-      // Check event
-      // --------------------------------------------------------
-
       const event =
         await Event.findById(eventId);
 
@@ -153,10 +109,6 @@ export const getDocumentParticipants =
           message: "Event not found",
         });
       }
-
-      // --------------------------------------------------------
-      // Get participants
-      // --------------------------------------------------------
 
       const participants =
         await EventParticipant.find({
@@ -167,10 +119,6 @@ export const getDocumentParticipants =
             "name email mobile role"
           )
           .lean();
-
-      // --------------------------------------------------------
-      // Convert to clean response
-      // --------------------------------------------------------
 
       const formattedParticipants =
         participants
@@ -218,20 +166,12 @@ export const getDocumentParticipants =
     }
   };
 
-// ============================================================
-// CREATE DOCUMENT REQUEST
-// ADMIN
-// ============================================================
-
 export const createDocumentRequest =
   async (
     req: AuthRequest,
     res: Response
   ) => {
     try {
-      // --------------------------------------------------------
-      // Authentication
-      // --------------------------------------------------------
 
       if (!req.user) {
         return res.status(401).json({
@@ -240,20 +180,12 @@ export const createDocumentRequest =
         });
       }
 
-      // --------------------------------------------------------
-      // Admin only
-      // --------------------------------------------------------
-
       if (req.user.role !== "admin") {
         return res.status(403).json({
           message:
             "Only admins can create document requests",
         });
       }
-
-      // --------------------------------------------------------
-      // Request body
-      // --------------------------------------------------------
 
       const {
         eventId,
@@ -263,10 +195,6 @@ export const createDocumentRequest =
         required,
         deadline,
       } = req.body;
-
-      // --------------------------------------------------------
-      // Required fields
-      // --------------------------------------------------------
 
       if (
         !eventId ||
@@ -280,9 +208,6 @@ export const createDocumentRequest =
         });
       }
 
-      // --------------------------------------------------------
-      // Validate event ID
-      // --------------------------------------------------------
 
       if (
         !mongoose.Types.ObjectId.isValid(
@@ -294,10 +219,6 @@ export const createDocumentRequest =
         });
       }
 
-      // --------------------------------------------------------
-      // Check event
-      // --------------------------------------------------------
-
       const event =
         await Event.findById(eventId);
 
@@ -306,10 +227,6 @@ export const createDocumentRequest =
           message: "Event not found",
         });
       }
-
-      // --------------------------------------------------------
-      // Validate document name
-      // --------------------------------------------------------
 
       if (
         typeof documentName !== "string" ||
@@ -320,10 +237,6 @@ export const createDocumentRequest =
             "Document name is required",
         });
       }
-
-      // --------------------------------------------------------
-      // Validate deadline
-      // --------------------------------------------------------
 
       const parsedDeadline =
         new Date(deadline);
@@ -347,10 +260,6 @@ export const createDocumentRequest =
             "Deadline cannot be in the past",
         });
       }
-
-      // ========================================================
-      // SEND TO ALL PARTICIPANTS
-      // ========================================================
 
       if (participantId === "all") {
         const eventParticipants =
@@ -467,10 +376,6 @@ export const createDocumentRequest =
         });
       }
 
-      // ========================================================
-      // SEND TO ONE PARTICIPANT
-      // ========================================================
-
       if (
         typeof participantId !== "string" ||
         !mongoose.Types.ObjectId.isValid(
@@ -482,10 +387,6 @@ export const createDocumentRequest =
             "Invalid participant ID",
         });
       }
-
-      // --------------------------------------------------------
-      // Check participant belongs to event
-      // --------------------------------------------------------
 
       const eventParticipant =
         await EventParticipant.findOne({
@@ -499,10 +400,6 @@ export const createDocumentRequest =
             "Participant is not registered for this event",
         });
       }
-
-      // --------------------------------------------------------
-      // Create request
-      // --------------------------------------------------------
 
       const request =
         await DocumentRequest.create({
@@ -539,10 +436,6 @@ export const createDocumentRequest =
               req.user.userId
             ),
         });
-
-      // --------------------------------------------------------
-      // Populate
-      // --------------------------------------------------------
 
       const populatedRequest =
         await DocumentRequest.findById(
@@ -581,20 +474,12 @@ export const createDocumentRequest =
     }
   };
 
-// ============================================================
-// GET DOCUMENT REQUESTS
-// ADMIN
-// ============================================================
-
 export const getDocumentRequests =
   async (
     req: AuthRequest,
     res: Response
   ) => {
     try {
-      // --------------------------------------------------------
-      // Authentication
-      // --------------------------------------------------------
 
       if (!req.user) {
         return res.status(401).json({
@@ -602,11 +487,6 @@ export const getDocumentRequests =
             "Authentication required",
         });
       }
-
-      // --------------------------------------------------------
-      // Admin only
-      // --------------------------------------------------------
-
       if (req.user.role !== "admin") {
         return res.status(403).json({
           message:
@@ -614,9 +494,7 @@ export const getDocumentRequests =
         });
       }
 
-      // --------------------------------------------------------
-      // Optional event filter
-      // --------------------------------------------------------
+    
 
       const eventId =
         typeof req.query.eventId ===
@@ -647,9 +525,7 @@ export const getDocumentRequests =
           );
       }
 
-      // --------------------------------------------------------
-      // Get requests
-      // --------------------------------------------------------
+   
 
       const requests =
         await DocumentRequest.find(
@@ -690,10 +566,6 @@ export const getDocumentRequests =
     }
   };
 
-// ============================================================
-// GET MY DOCUMENT REQUESTS
-// PARTICIPANT
-// ============================================================
 
 export const getMyDocumentRequests =
   async (
@@ -701,9 +573,6 @@ export const getMyDocumentRequests =
     res: Response
   ) => {
     try {
-      // --------------------------------------------------------
-      // Authentication
-      // --------------------------------------------------------
 
       if (!req.user) {
         return res.status(401).json({
@@ -711,10 +580,6 @@ export const getMyDocumentRequests =
             "Authentication required",
         });
       }
-
-      // --------------------------------------------------------
-      // Participant only
-      // --------------------------------------------------------
 
       if (
         req.user.role !==
@@ -726,9 +591,6 @@ export const getMyDocumentRequests =
         });
       }
 
-      // --------------------------------------------------------
-      // Get requests
-      // --------------------------------------------------------
 
       const requests =
         await DocumentRequest.find({
@@ -786,9 +648,6 @@ export const uploadDocument = async (
       });
     }
 
-    // --------------------------------------------------------
-    // Participant only
-    // --------------------------------------------------------
 
     if (
       req.user.role !==
@@ -799,10 +658,6 @@ export const uploadDocument = async (
           "Only participants can upload documents",
       });
     }
-
-    // --------------------------------------------------------
-    // File
-    // --------------------------------------------------------
 
     if (!req.file) {
       return res.status(400).json({
@@ -816,9 +671,6 @@ export const uploadDocument = async (
       requestId,
     } = req.body;
 
-    // --------------------------------------------------------
-    // Event ID
-    // --------------------------------------------------------
 
     if (!eventId) {
       return res.status(400).json({
@@ -839,10 +691,6 @@ export const uploadDocument = async (
       });
     }
 
-    // --------------------------------------------------------
-    // Event
-    // --------------------------------------------------------
-
     const event =
       await Event.findById(eventId);
 
@@ -853,9 +701,7 @@ export const uploadDocument = async (
       });
     }
 
-    // --------------------------------------------------------
-    // Participant belongs to event
-    // --------------------------------------------------------
+
 
     const participant =
       await EventParticipant.findOne({
@@ -874,18 +720,12 @@ export const uploadDocument = async (
       });
     }
 
-    // ========================================================
-    // DOCUMENT REQUEST
-    // ========================================================
 
     let documentRequest:
       | any
       | null = null;
 
     if (requestId) {
-      // ------------------------------------------------------
-      // Validate request ID
-      // ------------------------------------------------------
 
       if (
         typeof requestId !==
@@ -899,10 +739,6 @@ export const uploadDocument = async (
             "Invalid document request ID",
         });
       }
-
-      // ------------------------------------------------------
-      // Find request
-      // ------------------------------------------------------
 
       documentRequest =
         await DocumentRequest.findOne({
@@ -921,10 +757,6 @@ export const uploadDocument = async (
         });
       }
 
-      // ------------------------------------------------------
-      // Same event
-      // ------------------------------------------------------
-
       if (
         documentRequest.event.toString() !==
         eventId
@@ -934,10 +766,6 @@ export const uploadDocument = async (
             "Document request does not belong to this event",
         });
       }
-
-      // ------------------------------------------------------
-      // Already approved
-      // ------------------------------------------------------
 
       if (
         documentRequest.status ===
@@ -949,10 +777,6 @@ export const uploadDocument = async (
         });
       }
 
-      // ------------------------------------------------------
-      // Already submitted
-      // ------------------------------------------------------
-
       if (
         documentRequest.status ===
         "submitted"
@@ -963,10 +787,6 @@ export const uploadDocument = async (
         });
       }
     }
-
-    // ========================================================
-    // CREATE DOCUMENT
-    // ========================================================
 
     const document =
       await DocumentModel.create({
@@ -1002,9 +822,7 @@ export const uploadDocument = async (
           "pending",
       });
 
-    // ========================================================
-    // LINK DOCUMENT TO REQUEST
-    // ========================================================
+
 
     if (documentRequest) {
       documentRequest.document =
@@ -1038,19 +856,11 @@ export const uploadDocument = async (
   }
 };
 
-// ============================================================
-// GET MY DOCUMENTS
-// PARTICIPANT
-// ============================================================
-
 export const getMyDocuments = async (
   req: AuthRequest,
   res: Response
 ) => {
   try {
-    // --------------------------------------------------------
-    // Authentication
-    // --------------------------------------------------------
 
     if (!req.user) {
       return res.status(401).json({
@@ -1068,10 +878,6 @@ export const getMyDocuments = async (
           "Only participants can view their documents",
       });
     }
-
-    // --------------------------------------------------------
-    // Documents
-    // --------------------------------------------------------
 
     const documents =
       await DocumentModel.find({
@@ -1102,12 +908,7 @@ export const getMyDocuments = async (
         "Failed to fetch documents",
     });
   }
-};
-
-// ============================================================
-// GET ALL UPLOADED DOCUMENTS
-// ADMIN
-// ============================================================
+}
 
 export const getAllDocuments =
   async (
@@ -1115,9 +916,6 @@ export const getAllDocuments =
     res: Response
   ) => {
     try {
-      // --------------------------------------------------------
-      // Authentication
-      // --------------------------------------------------------
 
       if (!req.user) {
         return res.status(401).json({
@@ -1132,10 +930,6 @@ export const getAllDocuments =
             "Only admins can view all documents",
         });
       }
-
-      // --------------------------------------------------------
-      // Get documents
-      // --------------------------------------------------------
 
       const documents =
         await DocumentModel.find()
@@ -1167,10 +961,6 @@ export const getAllDocuments =
     }
   };
 
-// ============================================================
-// APPROVE DOCUMENT
-// ADMIN
-// ============================================================
 
 export const approveDocument =
   async (
@@ -1178,9 +968,6 @@ export const approveDocument =
     res: Response
   ) => {
     try {
-      // --------------------------------------------------------
-      // Authentication
-      // --------------------------------------------------------
 
       if (!req.user) {
         return res.status(401).json({
@@ -1195,10 +982,6 @@ export const approveDocument =
             "Only admins can approve documents",
         });
       }
-
-      // --------------------------------------------------------
-      // ID
-      // --------------------------------------------------------
 
       const id =
         getStringParam(
@@ -1223,10 +1006,6 @@ export const approveDocument =
         });
       }
 
-      // --------------------------------------------------------
-      // Document
-      // --------------------------------------------------------
-
       const document =
         await DocumentModel.findById(
           id
@@ -1239,18 +1018,11 @@ export const approveDocument =
         });
       }
 
-      // --------------------------------------------------------
-      // Approve
-      // --------------------------------------------------------
 
       document.status =
         "approved";
 
       await document.save();
-
-      // --------------------------------------------------------
-      // Update request
-      // --------------------------------------------------------
 
       await DocumentRequest.updateOne(
         {
@@ -1265,9 +1037,6 @@ export const approveDocument =
         }
       );
 
-      // --------------------------------------------------------
-      // Updated document
-      // --------------------------------------------------------
 
       const updatedDocument =
         await DocumentModel.findById(
@@ -1302,10 +1071,6 @@ export const approveDocument =
     }
   };
 
-// ============================================================
-// REJECT DOCUMENT
-// ADMIN
-// ============================================================
 
 export const rejectDocument =
   async (
@@ -1313,9 +1078,6 @@ export const rejectDocument =
     res: Response
   ) => {
     try {
-      // --------------------------------------------------------
-      // Authentication
-      // --------------------------------------------------------
 
       if (!req.user) {
         return res.status(401).json({
@@ -1330,10 +1092,6 @@ export const rejectDocument =
             "Only admins can reject documents",
         });
       }
-
-      // --------------------------------------------------------
-      // ID
-      // --------------------------------------------------------
 
       const id =
         getStringParam(
@@ -1358,10 +1116,6 @@ export const rejectDocument =
         });
       }
 
-      // --------------------------------------------------------
-      // Document
-      // --------------------------------------------------------
-
       const document =
         await DocumentModel.findById(
           id
@@ -1373,19 +1127,10 @@ export const rejectDocument =
             "Document not found",
         });
       }
-
-      // --------------------------------------------------------
-      // Reject
-      // --------------------------------------------------------
-
       document.status =
         "rejected";
 
       await document.save();
-
-      // --------------------------------------------------------
-      // Update request
-      // --------------------------------------------------------
 
       await DocumentRequest.updateOne(
         {
@@ -1399,10 +1144,6 @@ export const rejectDocument =
           },
         }
       );
-
-      // --------------------------------------------------------
-      // Updated document
-      // --------------------------------------------------------
 
       const updatedDocument =
         await DocumentModel.findById(
@@ -1437,30 +1178,18 @@ export const rejectDocument =
     }
   };
 
-// ============================================================
-// DOWNLOAD DOCUMENT
-// ============================================================
-
 export const downloadDocument =
   async (
     req: AuthRequest,
     res: Response
   ) => {
     try {
-      // --------------------------------------------------------
-      // Authentication
-      // --------------------------------------------------------
-
       if (!req.user) {
         return res.status(401).json({
           message:
             "Authentication required",
         });
       }
-
-      // --------------------------------------------------------
-      // ID
-      // --------------------------------------------------------
 
       const id =
         getStringParam(
@@ -1485,10 +1214,6 @@ export const downloadDocument =
         });
       }
 
-      // --------------------------------------------------------
-      // Document
-      // --------------------------------------------------------
-
       const document =
         await DocumentModel.findById(
           id
@@ -1500,10 +1225,6 @@ export const downloadDocument =
             "Document not found",
         });
       }
-
-      // --------------------------------------------------------
-      // Permission
-      // --------------------------------------------------------
 
       const isAdmin =
         req.user.role === "admin";
@@ -1522,10 +1243,6 @@ export const downloadDocument =
         });
       }
 
-      // --------------------------------------------------------
-      // File exists
-      // --------------------------------------------------------
-
       if (
         !fs.existsSync(
           document.path
@@ -1536,10 +1253,6 @@ export const downloadDocument =
             "Document file not found on server",
         });
       }
-
-      // --------------------------------------------------------
-      // Download
-      // --------------------------------------------------------
 
       return res.download(
         document.path,

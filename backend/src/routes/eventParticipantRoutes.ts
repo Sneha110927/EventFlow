@@ -9,19 +9,12 @@ import {
 
 const router = Router();
 
-// =========================================================
-// GET ALL ACTUAL PARTICIPANTS
-// =========================================================
-
 router.get(
   "/",
   authMiddleware,
   getAllEventParticipants
 );
 
-// =========================================================
-// GET PARTICIPANTS OF A SPECIFIC EVENT
-// =========================================================
 
 router.get(
   "/event/:eventId",

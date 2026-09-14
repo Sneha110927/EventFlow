@@ -8,10 +8,6 @@ import EventParticipant from "../models/EventParticipant";
 
 import { AuthRequest } from "../middleware/authMiddleware";
 
-// =========================================================
-// HELPER - GET PARAMETER AS STRING
-// =========================================================
-
 const getParamString = (
   value: string | string[] | undefined
 ): string | undefined => {
@@ -22,9 +18,6 @@ const getParamString = (
   return value;
 };
 
-// =========================================================
-// GET CHAT PARTICIPANTS - ADMIN
-// =========================================================
 
 export const getChatParticipants = async (
   req: AuthRequest,
@@ -45,19 +38,11 @@ export const getChatParticipants = async (
       });
     }
 
-    // =====================================================
-    // SEARCH
-    // =====================================================
-
     const search =
       typeof req.query.search ===
       "string"
         ? req.query.search.trim()
         : "";
-
-    // =====================================================
-    // GET EVENT PARTICIPANTS
-    // =====================================================
 
     const eventParticipants =
       await EventParticipant.find()
@@ -72,10 +57,6 @@ export const getChatParticipants = async (
         .sort({
           createdAt: -1,
         });
-
-    // =====================================================
-    // FILTER SEARCH
-    // =====================================================
 
     const filtered =
       eventParticipants.filter(
@@ -110,10 +91,6 @@ export const getChatParticipants = async (
         }
       );
 
-    // =====================================================
-    // REMOVE DUPLICATE USERS
-    // =====================================================
-
     const uniqueParticipants =
       new Map<string, any>();
 
@@ -139,10 +116,6 @@ export const getChatParticipants = async (
         );
       }
     }
-
-    // =====================================================
-    // BUILD RESULT
-    // =====================================================
 
     const result: Array<{
       participant: any;
@@ -186,10 +159,6 @@ export const getChatParticipants = async (
     });
   }
 };
-
-// =========================================================
-// GET MY CONVERSATIONS
-// =========================================================
 
 export const getMyConversations = async (
   req: AuthRequest,
@@ -244,9 +213,7 @@ export const getMyConversations = async (
   }
 };
 
-// =========================================================
-// CREATE OR GET CONVERSATION - ADMIN
-// =========================================================
+
 export const createConversation = async (
   req: AuthRequest,
   res: Response
@@ -356,21 +323,12 @@ export const createConversation = async (
       });
     }
 
-    // =====================================================
-    // PARTICIPANT CREATES/GETS CONVERSATION
-    // =====================================================
-
     if (
       req.user.role ===
       "participant"
     ) {
       let selectedAdminId =
         adminId;
-
-      // ---------------------------------------------------
-      // If participant did not provide admin ID,
-      // use the first admin.
-      // ---------------------------------------------------
 
       if (!selectedAdminId) {
         const admin =
@@ -484,10 +442,6 @@ export const createConversation = async (
   }
 };
 
-// =========================================================
-// GET MESSAGES
-// =========================================================
-
 export const getMessages = async (
   req: AuthRequest,
   res: Response
@@ -499,8 +453,6 @@ export const getMessages = async (
       });
     }
 
-    // Fix:
-    // string | string[] -> string
     const conversationId =
       getParamString(
         req.params.conversationId
@@ -512,7 +464,7 @@ export const getMessages = async (
       });
     }
 
-    // Validate ObjectId
+
     if (
       !mongoose.Types.ObjectId.isValid(
         conversationId
@@ -578,8 +530,6 @@ export const getMessages = async (
     });
   }
 };
-
-// =========================================================
 // SEND MESSAGE - REST FALLBACK
 // =========================================================
 
@@ -594,8 +544,6 @@ export const sendMessage = async (
       });
     }
 
-    // Fix:
-    // string | string[] -> string
     const conversationId =
       getParamString(
         req.params.conversationId
@@ -607,7 +555,6 @@ export const sendMessage = async (
       });
     }
 
-    // Validate ObjectId
     if (
       !mongoose.Types.ObjectId.isValid(
         conversationId
@@ -652,8 +599,7 @@ export const sendMessage = async (
       });
     }
 
-    // IMPORTANT:
-    // Convert conversationId string to ObjectId
+    
     const message =
       await Message.create({
         conversation:
@@ -701,10 +647,6 @@ export const sendMessage = async (
   }
 };
 
-// =========================================================
-// MARK MESSAGES AS READ
-// =========================================================
-
 export const markMessagesRead = async (
   req: AuthRequest,
   res: Response
@@ -716,8 +658,6 @@ export const markMessagesRead = async (
       });
     }
 
-    // Fix:
-    // string | string[] -> string
     const conversationId =
       getParamString(
         req.params.conversationId
@@ -728,8 +668,6 @@ export const markMessagesRead = async (
         message: "Conversation ID is required",
       });
     }
-
-    // Validate ObjectId
     if (
       !mongoose.Types.ObjectId.isValid(
         conversationId

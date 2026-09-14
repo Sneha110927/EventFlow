@@ -2,20 +2,6 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 
-// =========================================================
-// UPLOAD DIRECTORY
-// =========================================================
-//
-// Local:
-//   backend/uploads/documents
-//
-// Vercel:
-//   /tmp/uploads/documents
-//
-// Vercel does not allow us to create permanent files inside
-// the deployed project directory, so we use /tmp in production.
-//
-
 const uploadDirectory =
   process.env.VERCEL === "1"
     ? path.join("/tmp", "uploads", "documents")
@@ -25,19 +11,11 @@ const uploadDirectory =
         "documents"
       );
 
-// =========================================================
-// CREATE DIRECTORY
-// =========================================================
-
 if (!fs.existsSync(uploadDirectory)) {
   fs.mkdirSync(uploadDirectory, {
     recursive: true,
   });
 }
-
-// =========================================================
-// MULTER STORAGE
-// =========================================================
 
 const storage = multer.diskStorage({
   destination: (
@@ -65,10 +43,6 @@ const storage = multer.diskStorage({
   },
 });
 
-// =========================================================
-// FILE FILTER
-// =========================================================
-
 const fileFilter: multer.Options["fileFilter"] = (
   _req,
   file,
@@ -95,10 +69,6 @@ const fileFilter: multer.Options["fileFilter"] = (
   }
 };
 
-// =========================================================
-// MULTER
-// =========================================================
-
 const upload = multer({
   storage,
 
@@ -109,9 +79,5 @@ const upload = multer({
     fileSize: 10 * 1024 * 1024,
   },
 });
-
-// =========================================================
-// EXPORT
-// =========================================================
 
 export default upload;

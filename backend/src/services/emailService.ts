@@ -1,9 +1,5 @@
 import nodemailer from "nodemailer";
 
-// =========================================================
-// CREATE EMAIL TRANSPORTER
-// =========================================================
-
 const createTransporter = () => {
   const emailUser =
     process.env.EMAIL_USER;
@@ -27,9 +23,6 @@ const createTransporter = () => {
   });
 };
 
-// =========================================================
-// SEND OTP EMAIL
-// =========================================================
 
 export const sendOTPViaEmail = async (
   email: string,

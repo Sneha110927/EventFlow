@@ -4,10 +4,6 @@ import bcrypt from "bcryptjs";
 import OTP from "../models/OTP";
 import { sendOTPViaEmail } from "./emailService";
 
-// =========================================================
-// GENERATE AND STORE EMAIL OTP
-// =========================================================
-
 export const generateAndStoreEmailOTP = async (
   email: string,
   purpose:
@@ -25,9 +21,6 @@ export const generateAndStoreEmailOTP = async (
     );
   }
 
-  // -------------------------------------------------------
-  // Generate secure 6-digit OTP
-  // -------------------------------------------------------
 
   const otp =
     crypto
@@ -37,9 +30,6 @@ export const generateAndStoreEmailOTP = async (
       )
       .toString();
 
-  // -------------------------------------------------------
-  // Hash OTP
-  // -------------------------------------------------------
 
   const otpHash =
     await bcrypt.hash(
@@ -47,19 +37,11 @@ export const generateAndStoreEmailOTP = async (
       10
     );
 
-  // -------------------------------------------------------
-  // OTP expires in 5 minutes
-  // -------------------------------------------------------
-
   const expiresAt =
     new Date(
       Date.now() +
       5 * 60 * 1000
     );
-
-  // -------------------------------------------------------
-  // Remove previous OTP
-  // -------------------------------------------------------
 
   const deleteFilter =
     purpose === "participant-login" &&
@@ -83,9 +65,6 @@ export const generateAndStoreEmailOTP = async (
     deleteFilter
   );
 
-  // -------------------------------------------------------
-  // Store OTP
-  // -------------------------------------------------------
 
   await OTP.create({
 
@@ -103,9 +82,6 @@ export const generateAndStoreEmailOTP = async (
     attempts: 0,
   });
 
-  // -------------------------------------------------------
-  // Send OTP email
-  // -------------------------------------------------------
 
   await sendOTPViaEmail(
     normalizedEmail,

@@ -38,9 +38,6 @@ interface SendMessageCallback {
 export const setupChatSocket = (
   io: Server
 ) => {
-  // =====================================================
-  // SOCKET AUTHENTICATION
-  // =====================================================
 
   io.use(
     (
@@ -108,10 +105,6 @@ export const setupChatSocket = (
     }
   );
 
-  // =====================================================
-  // CONNECTION
-  // =====================================================
-
   io.on(
     "connection",
     (
@@ -132,17 +125,9 @@ export const setupChatSocket = (
         `Socket connected: ${userId} (${role})`
       );
 
-      // =================================================
-      // PERSONAL USER ROOM
-      // =================================================
-
       socket.join(
         `user:${userId}`
       );
-
-      // =================================================
-      // JOIN CONVERSATION
-      // =================================================
 
       socket.on(
         "join_conversation",
@@ -186,10 +171,6 @@ export const setupChatSocket = (
               return;
             }
 
-            // -------------------------------------------
-            // CHECK USER BELONGS TO CONVERSATION
-            // -------------------------------------------
-
             const isAdmin =
               conversation.admin.toString() ===
               userId;
@@ -226,10 +207,6 @@ export const setupChatSocket = (
         }
       );
 
-      // =================================================
-      // LEAVE CONVERSATION
-      // =================================================
-
       socket.on(
         "leave_conversation",
         (
@@ -254,10 +231,6 @@ export const setupChatSocket = (
         }
       );
 
-      // =================================================
-      // SEND MESSAGE
-      // =================================================
-
       socket.on(
         "send_message",
         async (
@@ -272,10 +245,6 @@ export const setupChatSocket = (
 
             const content =
               data?.content?.trim();
-
-            // -------------------------------------------
-            // VALIDATION
-            // -------------------------------------------
 
             if (
               !conversationId ||
@@ -304,10 +273,6 @@ export const setupChatSocket = (
               return;
             }
 
-            // -------------------------------------------
-            // FIND CONVERSATION
-            // -------------------------------------------
-
             const conversation =
               await Conversation.findById(
                 conversationId
@@ -322,10 +287,6 @@ export const setupChatSocket = (
 
               return;
             }
-
-            // -------------------------------------------
-            // CHECK ACCESS
-            // -------------------------------------------
 
             const isAdmin =
               conversation.admin.toString() ===
@@ -348,10 +309,6 @@ export const setupChatSocket = (
               return;
             }
 
-            // -------------------------------------------
-            // SAVE MESSAGE
-            // -------------------------------------------
-
             const message =
               await Message.create({
                 conversation:
@@ -367,10 +324,6 @@ export const setupChatSocket = (
                 content,
               });
 
-            // -------------------------------------------
-            // UPDATE CONVERSATION
-            // -------------------------------------------
-
             conversation.lastMessage =
               message._id;
 
@@ -378,10 +331,6 @@ export const setupChatSocket = (
               new Date();
 
             await conversation.save();
-
-            // -------------------------------------------
-            // POPULATE MESSAGE
-            // -------------------------------------------
 
             const populatedMessage =
               await Message.findById(
@@ -401,32 +350,16 @@ export const setupChatSocket = (
               return;
             }
 
-            // -------------------------------------------
-            // ROOM
-            // -------------------------------------------
-
             const room =
               `conversation:${conversationId}`;
 
             console.log(
               `Broadcasting message ${message._id} to ${room}`
             );
-
-            // -------------------------------------------
-            // SEND TO BOTH USERS
-            // -------------------------------------------
-
             io.to(room).emit(
               "new_message",
               populatedMessage
             );
-
-            // -------------------------------------------
-            // ALSO SEND TO PERSONAL ROOMS
-            //
-            // This handles the case where one side has
-            // not joined the conversation room yet.
-            // -------------------------------------------
 
             const adminId =
               conversation.admin.toString();
@@ -447,10 +380,6 @@ export const setupChatSocket = (
               "new_message",
               populatedMessage
             );
-
-            // -------------------------------------------
-            // CONVERSATION UPDATE
-            // -------------------------------------------
 
             const update = {
               conversationId,
@@ -483,10 +412,6 @@ export const setupChatSocket = (
               update
             );
 
-            // -------------------------------------------
-            // ACKNOWLEDGEMENT
-            // -------------------------------------------
-
             callback?.({
               success: true,
               message:
@@ -510,10 +435,6 @@ export const setupChatSocket = (
           }
         }
       );
-
-      // =================================================
-      // TYPING START
-      // =================================================
 
       socket.on(
         "typing_start",
@@ -542,10 +463,6 @@ export const setupChatSocket = (
         }
       );
 
-      // =================================================
-      // TYPING STOP
-      // =================================================
-
       socket.on(
         "typing_stop",
         (
@@ -572,10 +489,6 @@ export const setupChatSocket = (
             );
         }
       );
-
-      // =================================================
-      // DISCONNECT
-      // =================================================
 
       socket.on(
         "disconnect",

@@ -6,6 +6,10 @@ interface ParticipantLoginProps {
   invitationToken?: string;
 }
 
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  "http://localhost:5000/api";
+
 export default function ParticipantLogin({
   onLogin,
   onBack,
@@ -27,50 +31,33 @@ export default function ParticipantLogin({
 
   const isInvitationLogin = Boolean(invitationToken);
 
-  // ==========================================================
-  // LOAD INVITATION DETAILS
-  // ==========================================================
+  
 
   useEffect(() => {
     const loadInvitation = async () => {
-      // ------------------------------------------------------
-      // Normal participant login
-      // ------------------------------------------------------
-
       if (!invitationToken) {
         setLoadingInvitation(false);
         return;
       }
-
-      // ------------------------------------------------------
-      // Invitation login
-      // ------------------------------------------------------
 
       setLoadingInvitation(true);
       setError("");
 
       try {
         console.log("📨 Loading invitation...");
-        console.log(
-          "Invitation token:",
-          invitationToken
-        );
+        console.log("Invitation token:", invitationToken);
 
         const response = await fetch(
-          `https://event-flow-nine.vercel.app/api/invitations/accept/${invitationToken}`
+          `${API_BASE_URL}/invitations/accept/${invitationToken}`
         );
 
         const data = await response.json();
 
-        console.log(
-          "Invitation response:",
-          data
-        );
+        console.log("Invitation response:", data);
 
         if (!response.ok) {
           throw new Error(
-            data.message ||
-              "Unable to load invitation."
+            data.message || "Unable to load invitation."
           );
         }
 
@@ -79,12 +66,6 @@ export default function ParticipantLogin({
             "This invitation does not contain a valid email address."
           );
         }
-
-        // ----------------------------------------------------
-        // Do NOT automatically fill the email.
-        // Participant must type it manually.
-        // Backend validates that it matches invitation.email.
-        // ----------------------------------------------------
 
         setEmail("");
 
@@ -96,10 +77,7 @@ export default function ParticipantLogin({
           setEventName(data.event.name);
         }
 
-        console.log(
-          "✅ Invitation loaded successfully."
-        );
-
+        console.log("✅ Invitation loaded successfully.");
       } catch (error) {
         console.error(
           "Load invitation error:",
@@ -111,7 +89,6 @@ export default function ParticipantLogin({
             ? error.message
             : "Unable to load invitation."
         );
-
       } finally {
         setLoadingInvitation(false);
       }
@@ -120,9 +97,6 @@ export default function ParticipantLogin({
     loadInvitation();
   }, [invitationToken]);
 
-  // ==========================================================
-  // SEND OTP
-  // ==========================================================
 
   const handleSendOtp = async (
     e: FormEvent<HTMLFormElement>
@@ -135,9 +109,6 @@ export default function ParticipantLogin({
     const normalizedEmail =
       email.trim().toLowerCase();
 
-    // --------------------------------------------------------
-    // Validate email
-    // --------------------------------------------------------
 
     if (!normalizedEmail) {
       setError(
@@ -159,28 +130,30 @@ export default function ParticipantLogin({
     setLoading(true);
 
     try {
-      // ======================================================
-      // INVITATION LOGIN
-      // ======================================================
+    
 
       if (isInvitationLogin) {
         console.log(
           "📧 Sending invitation participant OTP..."
         );
 
+        if (!invitationToken) {
+          throw new Error(
+            "Invitation token is missing."
+          );
+        }
+
         const response = await fetch(
-          `https://event-flow-nine.vercel.app/api/invitations/${invitationToken}/send-otp`,
+          `${API_BASE_URL}/invitations/${invitationToken}/send-otp`,
           {
             method: "POST",
 
             headers: {
-              "Content-Type":
-                "application/json",
+              "Content-Type": "application/json",
             },
 
-            body: JSON.stringify({
-              email: normalizedEmail,
-            }),
+
+            body: JSON.stringify({}),
           }
         );
 
@@ -203,14 +176,11 @@ export default function ParticipantLogin({
         setOtpSent(true);
 
         setMessage(
-          "A verification OTP has been sent to your invitation email."
+          `A verification OTP has been sent to the invitation email.`
         );
-
       }
 
-      // ======================================================
-      // NORMAL PARTICIPANT LOGIN
-      // ======================================================
+
 
       else {
         console.log(
@@ -218,13 +188,12 @@ export default function ParticipantLogin({
         );
 
         const response = await fetch(
-          "https://event-flow-nine.vercel.app/api/auth/participant/send-otp",
+          `${API_BASE_URL}/auth/participant/send-otp`,
           {
             method: "POST",
 
             headers: {
-              "Content-Type":
-                "application/json",
+              "Content-Type": "application/json",
             },
 
             body: JSON.stringify({
@@ -255,7 +224,6 @@ export default function ParticipantLogin({
           "A verification OTP has been sent to your email address."
         );
       }
-
     } catch (error) {
       console.error(
         "Send participant OTP error:",
@@ -267,15 +235,10 @@ export default function ParticipantLogin({
           ? error.message
           : "Unable to send OTP. Please try again."
       );
-
     } finally {
       setLoading(false);
     }
   };
-
-  // ==========================================================
-  // VERIFY OTP
-  // ==========================================================
 
   const handleVerifyOtp = async (
     e: FormEvent<HTMLFormElement>
@@ -291,9 +254,6 @@ export default function ParticipantLogin({
     const normalizedEmail =
       email.trim().toLowerCase();
 
-    // --------------------------------------------------------
-    // Validate
-    // --------------------------------------------------------
 
     if (!normalizedEmail) {
       setError(
@@ -314,37 +274,32 @@ export default function ParticipantLogin({
     try {
       let response: Response;
 
-      // ======================================================
-      // INVITATION LOGIN
-      // ======================================================
-
       if (isInvitationLogin) {
         console.log(
           "🔐 Verifying invitation participant OTP..."
         );
 
+        if (!invitationToken) {
+          throw new Error(
+            "Invitation token is missing."
+          );
+        }
+
         response = await fetch(
-          `https://event-flow-nine.vercel.app/api/invitations/${invitationToken}/verify-otp`,
+          `${API_BASE_URL}/invitations/${invitationToken}/verify-otp`,
           {
             method: "POST",
 
             headers: {
-              "Content-Type":
-                "application/json",
+              "Content-Type": "application/json",
             },
 
             body: JSON.stringify({
-              email: normalizedEmail,
               otp: cleanOTP,
             }),
           }
         );
-
       }
-
-      // ======================================================
-      // NORMAL PARTICIPANT LOGIN
-      // ======================================================
 
       else {
         console.log(
@@ -352,13 +307,12 @@ export default function ParticipantLogin({
         );
 
         response = await fetch(
-          "https://event-flow-nine.vercel.app/api/auth/participant/verify-otp",
+          `${API_BASE_URL}/auth/participant/verify-otp`,
           {
             method: "POST",
 
             headers: {
-              "Content-Type":
-                "application/json",
+              "Content-Type": "application/json",
             },
 
             body: JSON.stringify({
@@ -384,18 +338,14 @@ export default function ParticipantLogin({
         );
       }
 
-      // ======================================================
-      // STORE JWT
-      // ======================================================
+  
+      if (data.token) {
+        localStorage.setItem(
+          "token",
+          data.token
+        );
+      }
 
-      localStorage.setItem(
-        "token",
-        data.token
-      );
-
-      // ======================================================
-      // STORE USER
-      // ======================================================
 
       if (data.user) {
         localStorage.setItem(
@@ -404,9 +354,6 @@ export default function ParticipantLogin({
         );
       }
 
-      // ======================================================
-      // STORE EVENT
-      // ======================================================
 
       if (data.event) {
         localStorage.setItem(
@@ -414,10 +361,6 @@ export default function ParticipantLogin({
           JSON.stringify(data.event)
         );
       }
-
-      // ======================================================
-      // REMOVE INVITATION TOKEN
-      // ======================================================
 
       if (isInvitationLogin) {
         sessionStorage.removeItem(
@@ -429,14 +372,9 @@ export default function ParticipantLogin({
         "Login successful! Opening your dashboard..."
       );
 
-      // ======================================================
-      // OPEN PARTICIPANT DASHBOARD
-      // ======================================================
-
       setTimeout(() => {
         onLogin("participant");
       }, 500);
-
     } catch (error) {
       console.error(
         "Verify participant OTP error:",
@@ -448,15 +386,11 @@ export default function ParticipantLogin({
           ? error.message
           : "Invalid or expired OTP."
       );
-
     } finally {
       setLoading(false);
     }
   };
 
-  // ==========================================================
-  // RESEND OTP
-  // ==========================================================
 
   const handleResendOtp = async () => {
     setOtp("");
@@ -478,41 +412,34 @@ export default function ParticipantLogin({
     try {
       let response: Response;
 
-      // ------------------------------------------------------
-      // Invitation resend
-      // ------------------------------------------------------
-
       if (isInvitationLogin) {
+        if (!invitationToken) {
+          throw new Error(
+            "Invitation token is missing."
+          );
+        }
+
         response = await fetch(
-          `https://event-flow-nine.vercel.app/api/invitations/${invitationToken}/send-otp`,
+          `${API_BASE_URL}/invitations/${invitationToken}/send-otp`,
           {
             method: "POST",
 
             headers: {
-              "Content-Type":
-                "application/json",
+              "Content-Type": "application/json",
             },
-
-            body: JSON.stringify({
-              email: normalizedEmail,
-            }),
+            body: JSON.stringify({}),
           }
         );
       }
 
-      // ------------------------------------------------------
-      // Normal participant resend
-      // ------------------------------------------------------
-
       else {
         response = await fetch(
-          "https://event-flow-nine.vercel.app/api/auth/participant/send-otp",
+          `${API_BASE_URL}/auth/participant/send-otp`,
           {
             method: "POST",
 
             headers: {
-              "Content-Type":
-                "application/json",
+              "Content-Type": "application/json",
             },
 
             body: JSON.stringify({
@@ -525,6 +452,11 @@ export default function ParticipantLogin({
       const data =
         await response.json();
 
+      console.log(
+        "Resend OTP response:",
+        data
+      );
+
       if (!response.ok) {
         throw new Error(
           data.message ||
@@ -535,7 +467,6 @@ export default function ParticipantLogin({
       setMessage(
         "A new OTP has been sent to your email address."
       );
-
     } catch (error) {
       console.error(
         "Resend OTP error:",
@@ -547,15 +478,10 @@ export default function ParticipantLogin({
           ? error.message
           : "Unable to resend OTP."
       );
-
     } finally {
       setLoading(false);
     }
   };
-
-  // ==========================================================
-  // BACK TO EMAIL
-  // ==========================================================
 
   const handleBackToEmailStep = () => {
     setOtpSent(false);
@@ -563,10 +489,6 @@ export default function ParticipantLogin({
     setMessage("");
     setError("");
   };
-
-  // ==========================================================
-  // LOADING INVITATION
-  // ==========================================================
 
   if (loadingInvitation) {
     return (
@@ -631,9 +553,6 @@ export default function ParticipantLogin({
     );
   }
 
-  // ==========================================================
-  // MAIN UI
-  // ==========================================================
 
   return (
     <div
@@ -647,10 +566,6 @@ export default function ParticipantLogin({
       "
     >
       <div className="w-full max-w-md">
-
-        {/* ====================================================
-            LOGO
-        ==================================================== */}
 
         <div className="text-center mb-8">
           <button
@@ -692,10 +607,6 @@ export default function ParticipantLogin({
           </button>
         </div>
 
-        {/* ====================================================
-            CARD
-        ==================================================== */}
-
         <div
           className="
             bg-white
@@ -706,10 +617,6 @@ export default function ParticipantLogin({
             border-[#E8E8F0]
           "
         >
-
-          {/* ==================================================
-              HEADING
-          ================================================== */}
 
           <h1
             className="
@@ -736,10 +643,6 @@ export default function ParticipantLogin({
               : "Sign in securely using your email and OTP."
             }
           </p>
-
-          {/* ==================================================
-              PARTICIPANT BADGE
-          ================================================== */}
 
           <div
             className="
@@ -788,10 +691,6 @@ export default function ParticipantLogin({
             </div>
           </div>
 
-          {/* ==================================================
-              INVITATION INFORMATION
-          ================================================== */}
-
           {isInvitationLogin &&
             (participantName || eventName) && (
               <div
@@ -830,10 +729,6 @@ export default function ParticipantLogin({
               </div>
             )}
 
-          {/* ==================================================
-              ERROR
-          ================================================== */}
-
           {error && (
             <div
               className="
@@ -851,10 +746,6 @@ export default function ParticipantLogin({
               {error}
             </div>
           )}
-
-          {/* ==================================================
-              EMAIL STEP
-          ================================================== */}
 
           {!otpSent ? (
             <form
@@ -1223,9 +1114,6 @@ export default function ParticipantLogin({
             </form>
           )}
 
-          {/* ==================================================
-              SECURITY
-          ================================================== */}
 
           <div
             className="
@@ -1250,10 +1138,6 @@ export default function ParticipantLogin({
             </p>
           </div>
         </div>
-
-        {/* ====================================================
-            BACK
-        ==================================================== */}
 
         <button
           type="button"
