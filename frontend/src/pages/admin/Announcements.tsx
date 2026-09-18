@@ -36,17 +36,19 @@ interface Announcement {
   updatedAt: string;
 }
 
-const API_BASE_URL = 'https://event-flow-nine.vercel.app/api';
+const API_BASE_URL =
+  window.location.hostname === 'localhost' ||
+  window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:5000/api'
+    : 'https://event-flow-nine.vercel.app';
 
 export default function Announcements() {
-  /* ================================================================
-     STATE
-  ================================================================= */
-
   const [events, setEvents] = useState<Event[]>([]);
   const [selectedEventId, setSelectedEventId] = useState('');
 
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [announcements, setAnnouncements] = useState<
+    Announcement[]
+  >([]);
 
   const [view, setView] = useState<'list' | 'create'>('list');
 
@@ -57,14 +59,14 @@ export default function Announcements() {
     useState<'all' | 'confirmed' | 'pending'>('all');
 
   const [loadingEvents, setLoadingEvents] = useState(true);
-  const [loadingAnnouncements, setLoadingAnnouncements] = useState(false);
+  const [loadingAnnouncements, setLoadingAnnouncements] =
+    useState(false);
   const [sending, setSending] = useState(false);
 
-  const [notification, setNotification] = useState('');
+  const [deletingAnnouncementId, setDeletingAnnouncementId] =
+    useState<string | null>(null);
 
-  /* ================================================================
-     TOAST
-  ================================================================= */
+  const [notification, setNotification] = useState('');
 
   const show = useCallback((message: string) => {
     setNotification(message);
@@ -74,17 +76,9 @@ export default function Announcements() {
     }, 3000);
   }, []);
 
-  /* ================================================================
-     TOKEN
-  ================================================================= */
-
   const getToken = () => {
     return localStorage.getItem('token');
   };
-
-  /* ================================================================
-     LOAD EVENTS
-  ================================================================= */
 
   const loadEvents = useCallback(async () => {
     try {
@@ -95,11 +89,14 @@ export default function Announcements() {
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/events`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/events`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
       const data = await response.json();
 
@@ -144,10 +141,6 @@ export default function Announcements() {
       setLoadingEvents(false);
     }
   }, [show]);
-
-  /* ================================================================
-     LOAD ANNOUNCEMENTS
-  ================================================================= */
 
   const loadAnnouncements = useCallback(
     async (eventId: string) => {
@@ -205,12 +198,6 @@ export default function Announcements() {
     [show]
   );
 
-  /* ================================================================
-     INITIAL EVENT LOAD
-
-     The timeout prevents React's setState-in-effect warning.
-  ================================================================= */
-
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void loadEvents();
@@ -220,13 +207,6 @@ export default function Announcements() {
       window.clearTimeout(timer);
     };
   }, [loadEvents]);
-
-  /* ================================================================
-     LOAD ANNOUNCEMENTS WHEN EVENT CHANGES
-
-     Again, use a timeout so the React lint rule does not complain
-     about state updates triggered from the effect.
-  ================================================================= */
 
   useEffect(() => {
     if (!selectedEventId) {
@@ -242,19 +222,11 @@ export default function Announcements() {
     };
   }, [selectedEventId, loadAnnouncements]);
 
-  /* ================================================================
-     SELECTED EVENT
-  ================================================================= */
-
   const selectedEvent = useMemo(() => {
     return events.find(
       (event) => event._id === selectedEventId
     );
   }, [events, selectedEventId]);
-
-  /* ================================================================
-     EVENT CHANGE
-  ================================================================= */
 
   const handleEventChange = (eventId: string) => {
     setSelectedEventId(eventId);
@@ -267,20 +239,12 @@ export default function Announcements() {
     setView('list');
   };
 
-  /* ================================================================
-     OPEN CREATE VIEW
-  ================================================================= */
-
   const openCreateView = () => {
     setTitle('');
     setContent('');
     setTarget('all');
     setView('create');
   };
-
-  /* ================================================================
-     CREATE ANNOUNCEMENT
-  ================================================================= */
 
   const sendAnnouncement = async (
     event: React.FormEvent
@@ -316,12 +280,10 @@ export default function Announcements() {
         `${API_BASE_URL}/announcements`,
         {
           method: 'POST',
-
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
           },
-
           body: JSON.stringify({
             title: title.trim(),
             content: content.trim(),
@@ -352,7 +314,6 @@ export default function Announcements() {
       setTitle('');
       setContent('');
       setTarget('all');
-
       setView('list');
 
       show('Announcement sent successfully');
@@ -372,9 +333,61 @@ export default function Announcements() {
     }
   };
 
-  /* ================================================================
-     FORMAT DATE
-  ================================================================= */
+  const deleteAnnouncement = async (
+    announcementId: string
+  ) => {
+    const token = getToken();
+
+    if (!token) {
+      show('Authentication required');
+      return;
+    }
+
+    try {
+      setDeletingAnnouncementId(announcementId);
+
+      const response = await fetch(
+        `${API_BASE_URL}/announcements/delete-announcement/${announcementId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            'Failed to delete announcement'
+        );
+      }
+
+      setAnnouncements((previous) =>
+        previous.filter(
+          (announcement) =>
+            announcement._id !== announcementId
+        )
+      );
+
+      show('Announcement deleted successfully');
+    } catch (error) {
+      console.error(
+        'Delete announcement error:',
+        error
+      );
+
+      show(
+        error instanceof Error
+          ? error.message
+          : 'Failed to delete announcement'
+      );
+    } finally {
+      setDeletingAnnouncementId(null);
+    }
+  };
 
   const formatDate = (date: string) => {
     const parsedDate = new Date(date);
@@ -393,10 +406,6 @@ export default function Announcements() {
     );
   };
 
-  /* ================================================================
-     TARGET LABEL
-  ================================================================= */
-
   const getTargetLabel = (
     targetValue:
       | 'all'
@@ -414,10 +423,6 @@ export default function Announcements() {
     return 'All Participants';
   };
 
-  /* ================================================================
-     LOADING EVENTS
-  ================================================================= */
-
   if (loadingEvents) {
     return (
       <div className="max-w-6xl mx-auto px-8 py-12">
@@ -432,14 +437,9 @@ export default function Announcements() {
     );
   }
 
-  /* ================================================================
-     NO EVENTS
-  ================================================================= */
-
   if (events.length === 0) {
     return (
       <div className="max-w-6xl mx-auto px-8 py-12">
-
         <div className="mb-8">
           <h1 className="text-4xl font-serif text-[#15152A]">
             Announcements
@@ -451,9 +451,7 @@ export default function Announcements() {
         </div>
 
         <div className="bg-white rounded-2xl border border-[#E8E8F0] p-12 text-center">
-
           <div className="w-14 h-14 bg-[#EEF2FF] rounded-2xl flex items-center justify-center mx-auto mb-4">
-
             <svg
               className="w-7 h-7 text-[#5B6FD4]"
               fill="none"
@@ -467,7 +465,6 @@ export default function Announcements() {
                 d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"
               />
             </svg>
-
           </div>
 
           <h2 className="font-semibold text-[#1A1A2E]">
@@ -477,25 +474,20 @@ export default function Announcements() {
           <p className="text-sm text-[#9090A8] mt-2">
             Create an event first before sending announcements.
           </p>
-
         </div>
       </div>
     );
   }
 
-  /* ================================================================
-     MAIN PAGE
-  ================================================================= */
-
   return (
     <div className="max-w-6xl mx-auto px-8 py-10">
-
-      {/* ============================================================
-          HEADER
-      ============================================================= */}
+      {notification && (
+        <div className="fixed top-5 right-5 z-50 bg-[#3CA18F] text-white px-6 py-3.5 rounded-xl shadow-lg font-medium">
+          ✓ {notification}
+        </div>
+      )}
 
       <div className="flex items-start justify-between gap-6 mb-8">
-
         <div>
           <h1 className="text-4xl font-serif text-[#15152A]">
             {view === 'create'
@@ -527,27 +519,16 @@ export default function Announcements() {
             ← Back to List
           </button>
         )}
-
       </div>
-
-      {/* ============================================================
-          LIST VIEW
-          
-          EVENT SELECTOR ONLY EXISTS HERE.
-      ============================================================= */}
 
       {view === 'list' && (
         <>
-          {/* EVENT SELECTOR */}
-
           <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-6 mb-7">
-
             <label className="block text-sm font-semibold text-[#1A1A2E] mb-3">
               Select Event
             </label>
 
             <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-
               <select
                 value={selectedEventId}
                 onChange={(event) =>
@@ -583,44 +564,30 @@ export default function Announcements() {
                   </p>
                 </div>
               )}
-
             </div>
-
           </div>
 
-          {/* ANNOUNCEMENT LIST */}
-
           <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft overflow-hidden">
-
             <div className="px-7 py-5 border-b border-[#E8E8F0]">
-
               <h2 className="font-semibold text-lg text-[#1A1A2E]">
                 Announcements
                 {selectedEvent
                   ? ` — ${selectedEvent.name}`
                   : ''}
               </h2>
-
             </div>
 
             {loadingAnnouncements ? (
               <div className="p-12 text-center">
-
                 <div className="w-8 h-8 border-4 border-[#EEF2FF] border-t-[#5B6FD4] rounded-full animate-spin mx-auto mb-3" />
 
                 <p className="text-sm text-[#9090A8]">
                   Loading announcements...
                 </p>
-
               </div>
             ) : announcements.length === 0 ? (
-
-              /* EMPTY STATE */
-
               <div className="p-12 text-center">
-
                 <div className="w-14 h-14 bg-[#EEF2FF] rounded-2xl flex items-center justify-center mx-auto mb-4">
-
                   <svg
                     className="w-7 h-7 text-[#5B6FD4]"
                     fill="none"
@@ -634,7 +601,6 @@ export default function Announcements() {
                       d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"
                     />
                   </svg>
-
                 </div>
 
                 <p className="font-semibold text-[#1A1A2E]">
@@ -652,28 +618,17 @@ export default function Announcements() {
                 >
                   Create Announcement
                 </button>
-
               </div>
-
             ) : (
-
-              /* ANNOUNCEMENT CARDS */
-
               <div className="divide-y divide-[#F0F0F5]">
-
                 {announcements.map(
                   (announcement) => (
                     <div
                       key={announcement._id}
                       className="px-7 py-6 hover:bg-[#FCFCFE] transition"
                     >
-
                       <div className="flex items-start gap-4">
-
-                        {/* ICON */}
-
                         <div className="w-11 h-11 rounded-xl bg-[#EEF2FF] flex items-center justify-center flex-shrink-0">
-
                           <svg
                             className="w-5 h-5 text-[#5B6FD4]"
                             fill="none"
@@ -687,72 +642,74 @@ export default function Announcements() {
                               d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"
                             />
                           </svg>
-
                         </div>
-
-                        {/* CONTENT */}
 
                         <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-semibold text-lg text-[#1A1A2E]">
+                                {announcement.title}
+                              </h3>
 
-                          <h3 className="font-semibold text-lg text-[#1A1A2E]">
-                            {announcement.title}
-                          </h3>
+                              <p className="text-sm text-[#5A5A72] mt-2 leading-relaxed whitespace-pre-wrap">
+                                {announcement.content}
+                              </p>
 
-                          <p className="text-sm text-[#5A5A72] mt-2 leading-relaxed whitespace-pre-wrap">
-                            {announcement.content}
-                          </p>
+                              <div className="flex flex-wrap items-center gap-3 mt-4">
+                                <span className="text-xs font-medium bg-[#EEF2FF] text-[#5B6FD4] px-3 py-1.5 rounded-full">
+                                  {getTargetLabel(
+                                    announcement.target
+                                  )}
+                                </span>
 
-                          <div className="flex flex-wrap items-center gap-3 mt-4">
+                                <span className="text-xs text-[#9090A8]">
+                                  {formatDate(
+                                    announcement.createdAt
+                                  )}
+                                </span>
+                              </div>
+                            </div>
 
-                            <span className="text-xs font-medium bg-[#EEF2FF] text-[#5B6FD4] px-3 py-1.5 rounded-full">
-                              {getTargetLabel(
-                                announcement.target
-                              )}
-                            </span>
-
-                            <span className="text-xs text-[#9090A8]">
-                              {formatDate(
-                                announcement.createdAt
-                              )}
-                            </span>
-
+                            <button
+                              type="button"
+                              disabled={
+                                deletingAnnouncementId !== null
+                              }
+                              onClick={() =>
+                                deleteAnnouncement(
+                                  announcement._id
+                                )
+                              }
+                              className={`shrink-0 text-xs font-medium transition-colors ${
+                                deletingAnnouncementId ===
+                                announcement._id
+                                  ? 'text-[#9090A8] cursor-not-allowed'
+                                  : 'text-[#D95B5B] hover:underline'
+                              }`}
+                            >
+                              {deletingAnnouncementId ===
+                              announcement._id
+                                ? 'Deleting...'
+                                : 'Delete'}
+                            </button>
                           </div>
-
                         </div>
-
                       </div>
-
                     </div>
                   )
                 )}
-
               </div>
             )}
-
           </div>
         </>
       )}
-
-      {/* ============================================================
-          CREATE VIEW
-          
-          IMPORTANT:
-          Event selection is INSIDE the create form.
-          There is no event selector above this form.
-      ============================================================= */}
 
       {view === 'create' && (
         <form
           onSubmit={sendAnnouncement}
           className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-8"
         >
-
-          {/* ==========================================================
-              SELECT EVENT
-          ========================================================== */}
-
           <div className="mb-7">
-
             <label className="block text-sm font-semibold text-[#1A1A2E] mb-3">
               Select Event
             </label>
@@ -782,13 +739,9 @@ export default function Announcements() {
               ))}
             </select>
 
-            {/* EVENT INFORMATION */}
-
             {selectedEvent && (
               <div className="mt-3 px-5 py-4 rounded-xl bg-[#F7F8FF] border border-[#E3E7FF]">
-
                 <div className="flex flex-wrap gap-x-10 gap-y-3">
-
                   <div>
                     <p className="text-xs text-[#9090A8]">
                       Event
@@ -810,20 +763,12 @@ export default function Announcements() {
                         'Not specified'}
                     </p>
                   </div>
-
                 </div>
-
               </div>
             )}
-
           </div>
 
-          {/* ==========================================================
-              TITLE
-          ========================================================== */}
-
           <div className="mb-6">
-
             <label className="block text-sm font-semibold text-[#1A1A2E] mb-3">
               Title
             </label>
@@ -837,15 +782,9 @@ export default function Announcements() {
               placeholder="e.g. Important Venue Update"
               className="w-full px-5 py-3.5 rounded-full border border-[#E3E3ED] bg-white outline-none text-[#1A1A2E] placeholder:text-[#A5A5B5] focus:border-[#7182DF] focus:ring-2 focus:ring-[#7182DF]/10"
             />
-
           </div>
 
-          {/* ==========================================================
-              MESSAGE
-          ========================================================== */}
-
           <div className="mb-7">
-
             <label className="block text-sm font-semibold text-[#1A1A2E] mb-3">
               Message
             </label>
@@ -859,23 +798,14 @@ export default function Announcements() {
               rows={6}
               className="w-full px-5 py-4 rounded-2xl border border-[#E3E3ED] bg-white outline-none resize-none text-[#1A1A2E] placeholder:text-[#A5A5B5] focus:border-[#7182DF] focus:ring-2 focus:ring-[#7182DF]/10"
             />
-
           </div>
 
-          {/* ==========================================================
-              SEND TO
-          ========================================================== */}
-
           <div className="mb-8">
-
             <label className="block text-sm font-semibold text-[#1A1A2E] mb-3">
               Send To
             </label>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-
-              {/* ALL */}
-
               <button
                 type="button"
                 onClick={() => setTarget('all')}
@@ -885,7 +815,6 @@ export default function Announcements() {
                     : 'border-[#E3E3ED] bg-white hover:bg-[#FAFAFD]'
                 }`}
               >
-
                 <p
                   className={`font-semibold ${
                     target === 'all'
@@ -899,10 +828,7 @@ export default function Announcements() {
                 <p className="text-xs text-[#9090A8] mt-1">
                   Everyone in this event
                 </p>
-
               </button>
-
-              {/* CONFIRMED */}
 
               <button
                 type="button"
@@ -915,7 +841,6 @@ export default function Announcements() {
                     : 'border-[#E3E3ED] bg-white hover:bg-[#FAFAFD]'
                 }`}
               >
-
                 <p
                   className={`font-semibold ${
                     target === 'confirmed'
@@ -929,10 +854,7 @@ export default function Announcements() {
                 <p className="text-xs text-[#9090A8] mt-1">
                   Accepted participants
                 </p>
-
               </button>
-
-              {/* PENDING */}
 
               <button
                 type="button"
@@ -945,7 +867,6 @@ export default function Announcements() {
                     : 'border-[#E3E3ED] bg-white hover:bg-[#FAFAFD]'
                 }`}
               >
-
                 <p
                   className={`font-semibold ${
                     target === 'pending'
@@ -959,19 +880,11 @@ export default function Announcements() {
                 <p className="text-xs text-[#9090A8] mt-1">
                   Pending participants
                 </p>
-
               </button>
-
             </div>
-
           </div>
 
-          {/* ==========================================================
-              ACTIONS
-          ========================================================== */}
-
           <div className="flex items-center gap-3">
-
             <button
               type="submit"
               disabled={sending}
@@ -990,22 +903,9 @@ export default function Announcements() {
             >
               Cancel
             </button>
-
           </div>
-
         </form>
       )}
-
-      {/* ================================================================
-          NOTIFICATION
-      ================================================================= */}
-
-      {notification && (
-        <div className="fixed top-5 right-5 z-50 bg-[#3CA18F] text-white px-6 py-3.5 rounded-xl shadow-lg font-medium">
-          ✓ {notification}
-        </div>
-      )}
-
     </div>
   );
 }

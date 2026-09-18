@@ -3,13 +3,10 @@ import mongoose from "mongoose";
 import Announcement from "../models/Announcement";
 import EventParticipant from "../models/EventParticipant";
 
-interface AuthenticatedRequest
-  extends Request {
+interface AuthenticatedRequest extends Request {
   user?: {
     userId: string;
-    role:
-      | "admin"
-      | "participant";
+    role: "admin" | "participant";
   };
 }
 
@@ -114,14 +111,14 @@ export const getParticipantAnnouncements = async (
   res: Response
 ): Promise<void> => {
   try {
-  if (!req.user?.userId) {
-  res.status(401).json({
-    message: "Authentication required",
-  });
-  return;
-} 
+    if (!req.user?.userId) {
+      res.status(401).json({
+        message: "Authentication required",
+      });
+      return;
+    }
 
-const participations = await EventParticipant.find({
+    const participations = await EventParticipant.find({
       user: req.user.userId,
     }).select("event status");
 
@@ -145,16 +142,12 @@ const participations = await EventParticipant.find({
       for (const announcement of eventAnnouncements) {
         if (announcement.target === "all") {
           announcements.push(announcement);
-        }
-
-        else if (
+        } else if (
           announcement.target === "confirmed" &&
           participation.status === "accepted"
         ) {
           announcements.push(announcement);
-        }
-
-        else if (
+        } else if (
           announcement.target === "pending" &&
           participation.status === "pending"
         ) {
@@ -218,6 +211,64 @@ export const markAnnouncementAsRead = async (
 
     res.status(500).json({
       message: "Failed to mark announcement as read",
+    });
+  }
+};
+
+export const deleteAnnouncement = async (
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    if (!req.user?.userId) {
+      res.status(401).json({
+        message: "Authentication required",
+      });
+      return;
+    }
+
+    if (req.user.role !== "admin") {
+      res.status(403).json({
+        message: "Only admins can delete announcements",
+      });
+      return;
+    }
+
+    if (typeof id !== "string") {
+      res.status(400).json({
+        message: "Invalid announcement ID",
+      });
+      return;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      res.status(400).json({
+        message: "Invalid announcement ID",
+      });
+      return;
+    }
+
+    const announcement = await Announcement.findById(id);
+
+    if (!announcement) {
+      res.status(404).json({
+        message: "Announcement not found",
+      });
+      return;
+    }
+
+    await Announcement.findByIdAndDelete(id);
+
+    res.status(200).json({
+      message: "Announcement deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete announcement error:", error);
+
+    res.status(500).json({
+      message: "Failed to delete announcement",
     });
   }
 };
