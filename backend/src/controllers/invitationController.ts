@@ -19,210 +19,220 @@ export const createInvitation = async (
   res: Response
 ) => {
   try {
-
     if (!req.user) {
       return res.status(401).json({
-        message:
-          "Authentication required",
+        message: "Authentication required",
       });
     }
-
 
     if (req.user.role !== "admin") {
       return res.status(403).json({
-        message:
-          "Only admins can send invitations",
+        message: "Only admins can send invitations",
       });
     }
 
-    const {
-      name,
-      email,
-      eventId,
-    } = req.body;
+    const { name, email, eventId } = req.body;
 
-    if (
-      !name ||
-      !email ||
-      !eventId
-    ) {
+    if (!name || !email || !eventId) {
       return res.status(400).json({
-        message:
-          "Name, email and event are required",
+        message: "Name, email and event are required",
       });
     }
 
-    const normalizedEmail =
-      email
-        .trim()
-        .toLowerCase();
+    const normalizedEmail = email.trim().toLowerCase();
 
-    if (
-      !normalizedEmail.includes("@")
-    ) {
+    if (!normalizedEmail.includes("@")) {
       return res.status(400).json({
-        message:
-          "Please enter a valid email address",
+        message: "Please enter a valid email address",
       });
     }
 
-
-    const event =
-      await Event.findById(
-        eventId
-      );
+    const event = await Event.findById(eventId);
 
     if (!event) {
       return res.status(404).json({
-        message:
-          "Event not found",
+        message: "Event not found",
       });
     }
 
+    const token = crypto.randomBytes(32).toString("hex");
 
-    const token =
-      crypto
-        .randomBytes(32)
-        .toString("hex");
-
-
-    const expiresAt =
-      new Date(
-        Date.now() +
-        7 * 24 * 60 * 60 * 1000
-      );
-
-    const invitation =
-      await Invitation.create({
-
-        name:
-          name.trim(),
-
-        email:
-          normalizedEmail,
-
-        event:
-          eventId,
-
-        invitedBy:
-          req.user.userId,
-
-        status:
-          "pending",
-
-        token,
-
-        expiresAt,
-      });
-
-    const invitationLink =
-  `${process.env.FRONTEND_URL || "http://localhost:5173"}/accept-invitation?token=${token}`;
-
-    console.log(
-      "📨 Invitation created:",
-      {
-        id:
-          invitation._id,
-
-        email:
-          invitation.email,
-
-        name:
-          invitation.name,
-
-        event:
-          event.name,
-      }
+    const expiresAt = new Date(
+      Date.now() + 7 * 24 * 60 * 60 * 1000
     );
 
+    const invitation = await Invitation.create({
+      name: name.trim(),
+      email: normalizedEmail,
+      event: eventId,
+      invitedBy: req.user.userId,
+      status: "pending",
+      token,
+      expiresAt,
+    });
+
+    const invitationLink =
+      `${process.env.FRONTEND_URL || "http://localhost:5173"}/accept-invitation?token=${token}`;
+
+    console.log("📨 Invitation created:", {
+      id: invitation._id,
+      email: invitation.email,
+      name: invitation.name,
+      event: event.name,
+    });
 
     await sendInvitationEmail({
-
-      to:
-        invitation.email,
-
-      name:
-        invitation.name,
-
-      eventName:
-        event.name,
-
+      to: invitation.email,
+      name: invitation.name,
+      eventName: event.name,
       invitationLink,
     });
 
     return res.status(201).json({
-
-      message:
-        "Invitation sent successfully",
-
+      message: "Invitation sent successfully",
       invitation,
     });
-
   } catch (error) {
-
-    console.error(
-      "Create invitation error:",
-      error
-    );
+    console.error("Create invitation error:", error);
 
     return res.status(500).json({
-      message:
-        "Failed to create invitation",
+      message: "Failed to create invitation",
     });
   }
 };
-
 
 export const getInvitations = async (
   req: AuthRequest,
   res: Response
 ) => {
   try {
-
     if (!req.user) {
       return res.status(401).json({
-        message:
-          "Authentication required",
+        message: "Authentication required",
       });
     }
 
-    if (
-      req.user.role !== "admin"
-    ) {
+    if (req.user.role !== "admin") {
       return res.status(403).json({
-        message:
-          "Only admins can view invitations",
+        message: "Only admins can view invitations",
       });
     }
 
-    const invitations =
-      await Invitation.find()
-        .populate(
-          "event",
-          "name type"
-        )
-        .populate(
-          "invitedBy",
-          "name email"
-        )
-        .sort({
-          createdAt: -1,
-        });
+    const invitations = await Invitation.find()
+      .populate("event", "name type")
+      .populate("invitedBy", "name email")
+      .sort({
+        createdAt: -1,
+      });
 
     return res.status(200).json({
       invitations,
     });
-
   } catch (error) {
-
-    console.error(
-      "Get invitations error:",
-      error
-    );
+    console.error("Get invitations error:", error);
 
     return res.status(500).json({
-      message:
-        "Server error",
+      message: "Server error",
+    });
+  }
+};
+
+export const resendInvitation = async (
+  req: AuthRequest,
+  res: Response
+) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        message: "Authentication required",
+      });
+    }
+
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
+        message: "Only admins can resend invitations",
+      });
+    }
+
+    const invitationId = Array.isArray(req.params.invitationId)
+      ? req.params.invitationId[0]
+      : req.params.invitationId;
+
+    if (!invitationId) {
+      return res.status(400).json({
+        message: "Invitation ID is required",
+      });
+    }
+
+    const invitation = await Invitation.findById(invitationId);
+
+    if (!invitation) {
+      return res.status(404).json({
+        message: "Invitation not found",
+      });
+    }
+
+    if (invitation.status !== "pending") {
+      return res.status(400).json({
+        message: `This invitation cannot be resent because its status is "${invitation.status}".`,
+      });
+    }
+
+    if (invitation.expiresAt < new Date()) {
+      invitation.status = "expired";
+
+      await invitation.save();
+
+      return res.status(410).json({
+        message:
+          "This invitation has expired. Please create a new invitation.",
+      });
+    }
+
+    const event = await Event.findById(invitation.event);
+
+    if (!event) {
+      return res.status(404).json({
+        message:
+          "Event associated with this invitation was not found",
+      });
+    }
+
+    const frontendUrl =
+      process.env.FRONTEND_URL || "http://localhost:5173";
+
+    const invitationLink =
+      `${frontendUrl}/accept-invitation?token=${invitation.token}`;
+
+    console.log("📨 Resending invitation:", {
+      id: invitation._id,
+      email: invitation.email,
+      name: invitation.name,
+      event: event.name,
+    });
+
+    await sendInvitationEmail({
+      to: invitation.email,
+      name: invitation.name,
+      eventName: event.name,
+      invitationLink,
+    });
+
+    return res.status(200).json({
+      message: "Invitation resent successfully",
+      invitation: {
+        id: invitation._id,
+        email: invitation.email,
+        name: invitation.name,
+        status: invitation.status,
+        expiresAt: invitation.expiresAt,
+      },
+    });
+  } catch (error) {
+    console.error("Resend invitation error:", error);
+
+    return res.status(500).json({
+      message: "Failed to resend invitation",
     });
   }
 };
@@ -232,91 +242,58 @@ export const getInvitationByToken = async (
   res: Response
 ) => {
   try {
-
-    const token =
-      Array.isArray(
-        req.params.token
-      )
-        ? req.params.token[0]
-        : req.params.token;
+    const token = Array.isArray(req.params.token)
+      ? req.params.token[0]
+      : req.params.token;
 
     if (!token) {
       return res.status(400).json({
-        message:
-          "Invitation token is required",
+        message: "Invitation token is required",
       });
     }
 
-    const invitation =
-      await Invitation.findOne({
-        token,
-      }).populate(
-        "event",
-        "name type description startDate endDate location"
-      );
+    const invitation = await Invitation.findOne({
+      token,
+    }).populate(
+      "event",
+      "name type description startDate endDate location"
+    );
 
     if (!invitation) {
       return res.status(404).json({
-        message:
-          "Invitation not found",
+        message: "Invitation not found",
       });
     }
 
     if (
       invitation.status === "pending" &&
-      invitation.expiresAt <
-        new Date()
+      invitation.expiresAt < new Date()
     ) {
-
-      invitation.status =
-        "expired";
-
+      invitation.status = "expired";
       await invitation.save();
     }
 
-    if (
-      invitation.status === "expired"
-    ) {
+    if (invitation.status === "expired") {
       return res.status(410).json({
-        message:
-          "This invitation has expired",
+        message: "This invitation has expired",
       });
     }
 
     return res.status(200).json({
-
       invitation: {
-
-        id:
-          invitation._id,
-
-        name:
-          invitation.name,
-
-        email:
-          invitation.email,
-
-        status:
-          invitation.status,
-
-        expiresAt:
-          invitation.expiresAt,
-
-        event:
-          invitation.event,
+        id: invitation._id,
+        name: invitation.name,
+        email: invitation.email,
+        status: invitation.status,
+        expiresAt: invitation.expiresAt,
+        event: invitation.event,
       },
     });
-
   } catch (error) {
-
-    console.error(
-      "Get invitation error:",
-      error
-    );
+    console.error("Get invitation error:", error);
 
     return res.status(500).json({
-      message:
-        "Server error",
+      message: "Server error",
     });
   }
 };
@@ -326,60 +303,41 @@ export const sendInvitationOTP = async (
   res: Response
 ) => {
   try {
-
-    const token =
-      Array.isArray(
-        req.params.token
-      )
-        ? req.params.token[0]
-        : req.params.token;
+    const token = Array.isArray(req.params.token)
+      ? req.params.token[0]
+      : req.params.token;
 
     if (!token) {
       return res.status(400).json({
-        message:
-          "Invitation token is required",
+        message: "Invitation token is required",
       });
     }
 
-    const invitation =
-      await Invitation.findOne({
-        token,
-      });
+    const invitation = await Invitation.findOne({
+      token,
+    });
 
     if (!invitation) {
       return res.status(404).json({
-        message:
-          "Invitation not found",
+        message: "Invitation not found",
       });
     }
 
     if (
-      invitation.status !==
-        "expired" &&
-      invitation.expiresAt <
-        new Date()
+      invitation.status !== "expired" &&
+      invitation.expiresAt < new Date()
     ) {
-
-      invitation.status =
-        "expired";
-
+      invitation.status = "expired";
       await invitation.save();
     }
 
-    if (
-      invitation.status ===
-      "expired"
-    ) {
+    if (invitation.status === "expired") {
       return res.status(410).json({
-        message:
-          "This invitation has expired",
+        message: "This invitation has expired",
       });
     }
 
-    const email =
-      invitation.email
-        .trim()
-        .toLowerCase();
+    const email = invitation.email.trim().toLowerCase();
 
     if (!email) {
       return res.status(400).json({
@@ -395,129 +353,81 @@ export const sendInvitationOTP = async (
     );
 
     return res.status(200).json({
-
-      message:
-        "OTP sent to your email address.",
-
+      message: "OTP sent to your email address.",
       email,
-
-      expiresIn:
-        300,
+      expiresIn: 300,
     });
-
   } catch (error) {
-
-    console.error(
-      "Send invitation OTP error:",
-      error
-    );
+    console.error("Send invitation OTP error:", error);
 
     return res.status(500).json({
-      message:
-        "Failed to send OTP.",
+      message: "Failed to send OTP.",
     });
   }
 };
-// VERIFY INVITATION EMAIL OTP
-// =========================================================
 
 export const verifyInvitationOTP = async (
   req: AuthRequest,
   res: Response
 ) => {
   try {
+    const token = Array.isArray(req.params.token)
+      ? req.params.token[0]
+      : req.params.token;
 
-    const token =
-      Array.isArray(
-        req.params.token
-      )
-        ? req.params.token[0]
-        : req.params.token;
-
-    const otp =
-      req.body.otp
-        ?.toString()
-        .trim();
+    const otp = req.body.otp?.toString().trim();
 
     if (!token) {
       return res.status(400).json({
-        message:
-          "Invitation token is required",
+        message: "Invitation token is required",
       });
     }
 
     if (!otp) {
       return res.status(400).json({
-        message:
-          "OTP is required",
+        message: "OTP is required",
       });
     }
 
-    if (
-      !/^\d{6}$/.test(otp)
-    ) {
+    if (!/^\d{6}$/.test(otp)) {
       return res.status(400).json({
-        message:
-          "OTP must be 6 digits",
+        message: "OTP must be 6 digits",
       });
     }
 
-    const invitation =
-      await Invitation.findOne({
-        token,
-      });
+    const invitation = await Invitation.findOne({
+      token,
+    });
 
     if (!invitation) {
       return res.status(404).json({
-        message:
-          "Invitation not found",
+        message: "Invitation not found",
       });
     }
 
-
     if (
-      invitation.status !==
-        "expired" &&
-      invitation.expiresAt <
-        new Date()
+      invitation.status !== "expired" &&
+      invitation.expiresAt < new Date()
     ) {
-
-      invitation.status =
-        "expired";
-
+      invitation.status = "expired";
       await invitation.save();
     }
 
-    if (
-      invitation.status ===
-      "expired"
-    ) {
+    if (invitation.status === "expired") {
       return res.status(410).json({
-        message:
-          "This invitation has expired",
+        message: "This invitation has expired",
       });
     }
 
-    const email =
-      invitation.email
-        .trim()
-        .toLowerCase();
+    const email = invitation.email.trim().toLowerCase();
 
-
-    const otpRecord =
-      await OTP.findOne({
-
-        email,
-
-        purpose:
-          "participant-login",
-
-        invitationToken:
-          token,
-
-      }).sort({
-        createdAt: -1,
-      });
+    const otpRecord = await OTP.findOne({
+      email,
+      purpose: "participant-login",
+      invitationToken: token,
+    }).sort({
+      createdAt: -1,
+    });
 
     if (!otpRecord) {
       return res.status(400).json({
@@ -526,14 +436,9 @@ export const verifyInvitationOTP = async (
       });
     }
 
-    if (
-      otpRecord.expiresAt <
-      new Date()
-    ) {
-
+    if (otpRecord.expiresAt < new Date()) {
       await OTP.deleteOne({
-        _id:
-          otpRecord._id,
+        _id: otpRecord._id,
       });
 
       return res.status(400).json({
@@ -541,13 +446,10 @@ export const verifyInvitationOTP = async (
           "OTP has expired. Please request a new OTP.",
       });
     }
-    if (
-      otpRecord.attempts >= 5
-    ) {
 
+    if (otpRecord.attempts >= 5) {
       await OTP.deleteOne({
-        _id:
-          otpRecord._id,
+        _id: otpRecord._id,
       });
 
       return res.status(429).json({
@@ -556,122 +458,70 @@ export const verifyInvitationOTP = async (
       });
     }
 
-    const isValidOTP =
-      await bcrypt.compare(
-        otp,
-        otpRecord.otpHash
-      );
+    const isValidOTP = await bcrypt.compare(
+      otp,
+      otpRecord.otpHash
+    );
 
     if (!isValidOTP) {
-
       otpRecord.attempts += 1;
 
       await otpRecord.save();
 
       return res.status(400).json({
-
-        message:
-          "Invalid OTP",
-
-        attemptsRemaining:
-          5 -
-          otpRecord.attempts,
+        message: "Invalid OTP",
+        attemptsRemaining: 5 - otpRecord.attempts,
       });
     }
 
-     await OTP.deleteOne({
-      _id:
-        otpRecord._id,
+    await OTP.deleteOne({
+      _id: otpRecord._id,
     });
 
-    let user =
-      await User.findOne({
-
-        email,
-
-        role:
-          "participant",
-
-      });
+    let user = await User.findOne({
+      email,
+      role: "participant",
+    });
 
     if (!user) {
-
-      user =
-        await User.create({
-
-          name:
-            invitation.name,
-
-          email,
-
-          role:
-            "participant",
-        });
-
+      user = await User.create({
+        name: invitation.name,
+        email,
+        role: "participant",
+      });
     } else {
-
       if (
         invitation.name &&
-        user.name !==
-          invitation.name
+        user.name !== invitation.name
       ) {
-
-        user.name =
-          invitation.name;
-
+        user.name = invitation.name;
         await user.save();
       }
     }
 
-
     let eventParticipant =
       await EventParticipant.findOne({
-
-        event:
-          invitation.event,
-
-        user:
-          user._id,
+        event: invitation.event,
+        user: user._id,
       });
 
     if (!eventParticipant) {
-
       eventParticipant =
         await EventParticipant.create({
-
-          event:
-            invitation.event,
-
-          user:
-            user._id,
-
-          status:
-            "accepted",
-
-          registrationCompleted:
-            false,
-
-          joinedAt:
-            new Date(),
+          event: invitation.event,
+          user: user._id,
+          status: "accepted",
+          registrationCompleted: false,
+          joinedAt: new Date(),
         });
-
     }
 
-
-    if (
-      invitation.status !==
-      "accepted"
-    ) {
-
-      invitation.status =
-        "accepted";
-
+    if (invitation.status !== "accepted") {
+      invitation.status = "accepted";
       await invitation.save();
     }
 
-
-    const jwtSecret =
-      process.env.JWT_SECRET;
+    const jwtSecret = process.env.JWT_SECRET;
 
     if (!jwtSecret) {
       throw new Error(
@@ -679,139 +529,91 @@ export const verifyInvitationOTP = async (
       );
     }
 
-    const jwtToken =
-      jwt.sign(
-
-        {
-          userId:
-            user._id.toString(),
-
-          role:
-            "participant",
-        },
-
-        jwtSecret,
-
-        {
-          expiresIn:
-            "7d",
-        }
-      );
-
+    const jwtToken = jwt.sign(
+      {
+        userId: user._id.toString(),
+        role: "participant",
+      },
+      jwtSecret,
+      {
+        expiresIn: "7d",
+      }
+    );
 
     return res.status(200).json({
-
       message:
         "OTP verified successfully. Login successful.",
-
-      token:
-        jwtToken,
-
+      token: jwtToken,
       user: {
-
-        id:
-          user._id,
-
-        name:
-          user.name,
-
-        email:
-          user.email,
-
-        role:
-          user.role,
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
       },
     });
-
   } catch (error) {
-
     console.error(
       "Verify invitation OTP error:",
       error
     );
 
     return res.status(500).json({
-      message:
-        "Server error",
+      message: "Server error",
     });
   }
 };
-
 
 export const deleteInvitation = async (
   req: AuthRequest,
   res: Response
 ) => {
   try {
-
     if (!req.user) {
       return res.status(401).json({
-        message:
-          "Authentication required",
+        message: "Authentication required",
       });
     }
 
-    if (
-      req.user.role !==
-      "admin"
-    ) {
+    if (req.user.role !== "admin") {
       return res.status(403).json({
-        message:
-          "Only admins can remove participants",
+        message: "Only admins can remove participants",
       });
     }
 
-    const invitationId =
-      Array.isArray(
-        req.params.invitationId
-      )
-        ? req.params.invitationId[0]
-        : req.params.invitationId;
+    const invitationId = Array.isArray(
+      req.params.invitationId
+    )
+      ? req.params.invitationId[0]
+      : req.params.invitationId;
 
     if (!invitationId) {
       return res.status(400).json({
-        message:
-          "Invitation ID is required",
+        message: "Invitation ID is required",
       });
     }
 
-    const invitation =
-      await Invitation.findById(
-        invitationId
-      );
+    const invitation = await Invitation.findById(
+      invitationId
+    );
 
     if (!invitation) {
       return res.status(404).json({
-        message:
-          "Invitation not found",
+        message: "Invitation not found",
       });
     }
 
-    const eventId =
-      invitation.event;
+    const eventId = invitation.event;
 
-  
-    const participant =
-      await User.findOne({
-
-        email:
-          invitation.email,
-
-        role:
-          "participant",
-      });
-
+    const participant = await User.findOne({
+      email: invitation.email,
+      role: "participant",
+    });
 
     if (participant) {
-
       const result =
         await EventParticipant.deleteOne({
-
-          event:
-            eventId,
-
-          user:
-            participant._id,
+          event: eventId,
+          user: participant._id,
         });
 
       console.log(
@@ -820,24 +622,18 @@ export const deleteInvitation = async (
       );
     }
 
-    const otpResult =
-      await OTP.deleteMany({
-
-        invitationToken:
-          invitation.token,
-      });
+    const otpResult = await OTP.deleteMany({
+      invitationToken: invitation.token,
+    });
 
     console.log(
       "OTP records removed:",
       otpResult.deletedCount
     );
 
-
     const invitationResult =
       await Invitation.deleteOne({
-
-        _id:
-          invitation._id,
+        _id: invitation._id,
       });
 
     console.log(
@@ -845,45 +641,31 @@ export const deleteInvitation = async (
       invitationResult.deletedCount
     );
 
-    // SUCCESS
-    // -------------------------------------------------------
-
     return res.status(200).json({
-
-      message:
-        "Participant removed successfully",
-
+      message: "Participant removed successfully",
       invitationDeleted:
         invitationResult.deletedCount,
-
-      participantRemoved:
-        participant
-          ? true
-          : false,
+      participantRemoved: participant
+        ? true
+        : false,
     });
-
   } catch (error) {
-
     console.error(
       "Delete invitation/participant error:",
       error
     );
 
     return res.status(500).json({
-      message:
-        "Server error",
+      message: "Server error",
     });
   }
 };
-
 
 export const acceptInvitation = async (
   req: AuthRequest,
   res: Response
 ) => {
-
   return res.status(410).json({
-
     message:
       "Password-based invitation acceptance is no longer supported. Please use email OTP verification.",
   });

@@ -5,6 +5,8 @@ import {
   useState,
 } from 'react';
 
+import API_BASE_URL from '../../config/api';
+
 interface EventData {
   _id: string;
   name: string;
@@ -24,8 +26,6 @@ interface Invitation {
   createdAt: string;
   token?: string;
 }
-
-const API_BASE_URL = 'https://event-flow-nine.vercel.app/api';
 
 export default function Invitations() {
   const [tab, setTab] = useState<
@@ -59,6 +59,12 @@ export default function Invitations() {
   const [sending, setSending] =
     useState(false);
 
+  const [resendingInvitationId, setResendingInvitationId] =
+    useState<string | null>(null);
+
+  const [resentInvitationId, setResentInvitationId] =
+    useState<string | null>(null);
+
   const [invitationLink, setInvitationLink] =
     useState('');
 
@@ -76,6 +82,12 @@ export default function Invitations() {
       setNotification('');
     }, 3000);
   }, []);
+
+  /*
+  |--------------------------------------------------------------------------
+  | FETCH EVENTS
+  |--------------------------------------------------------------------------
+  */
 
   const fetchEvents = useCallback(
     async () => {
@@ -167,6 +179,12 @@ export default function Invitations() {
     []
   );
 
+  /*
+  |--------------------------------------------------------------------------
+  | FETCH INVITATIONS
+  |--------------------------------------------------------------------------
+  */
+
   const fetchInvitations = useCallback(
     async () => {
       try {
@@ -218,6 +236,12 @@ export default function Invitations() {
     []
   );
 
+  /*
+  |--------------------------------------------------------------------------
+  | INITIAL LOAD
+  |--------------------------------------------------------------------------
+  */
+
   useEffect(() => {
     const timer =
       window.setTimeout(() => {
@@ -237,6 +261,12 @@ export default function Invitations() {
     fetchInvitations,
   ]);
 
+  /*
+  |--------------------------------------------------------------------------
+  | SELECTED EVENT
+  |--------------------------------------------------------------------------
+  */
+
   const selectedEvent =
     useMemo(() => {
       return events.find(
@@ -248,6 +278,11 @@ export default function Invitations() {
       selectedEventId,
     ]);
 
+  /*
+  |--------------------------------------------------------------------------
+  | EVENT INVITATIONS
+  |--------------------------------------------------------------------------
+  */
 
   const eventInvitations =
     useMemo(() => {
@@ -274,6 +309,11 @@ export default function Invitations() {
       selectedEventId,
     ]);
 
+  /*
+  |--------------------------------------------------------------------------
+  | EVENT CHANGE
+  |--------------------------------------------------------------------------
+  */
 
   const handleEventChange = (
     eventId: string
@@ -288,6 +328,12 @@ export default function Invitations() {
     setInvitationLink('');
     setError('');
   };
+
+  /*
+  |--------------------------------------------------------------------------
+  | INVITATION STATS
+  |--------------------------------------------------------------------------
+  */
 
   const pendingInvitations =
     eventInvitations.filter(
@@ -361,6 +407,12 @@ export default function Invitations() {
     },
   ];
 
+  /*
+  |--------------------------------------------------------------------------
+  | COPY INVITATION LINK
+  |--------------------------------------------------------------------------
+  */
+
   const copyLink = async (
     link: string
   ) => {
@@ -390,6 +442,11 @@ export default function Invitations() {
     }
   };
 
+  /*
+  |--------------------------------------------------------------------------
+  | SEND INVITATION
+  |--------------------------------------------------------------------------
+  */
 
   const sendInvite = async (
     e: React.FormEvent
@@ -501,13 +558,16 @@ export default function Invitations() {
 
         /*
          * Generate invitation link.
+         *
+         * Use current frontend host so it works
+         * on localhost and Vercel.
          */
 
         if (
           data.invitation.token
         ) {
           const link =
-            `http://localhost:5173/accept-invitation?token=${data.invitation.token}`;
+            `${window.location.origin}/accept-invitation?token=${data.invitation.token}`;
 
           setInvitationLink(link);
         }
@@ -519,6 +579,9 @@ export default function Invitations() {
        * Reset participant fields.
        */
 
+      const invitedEmail =
+        email.trim();
+
       setName('');
       setEmail('');
 
@@ -529,7 +592,7 @@ export default function Invitations() {
       setTab('overview');
 
       show(
-        `Invitation created for ${email.trim()}`
+        `Invitation created for ${invitedEmail}`
       );
     } catch (err) {
       console.error(
@@ -549,18 +612,121 @@ export default function Invitations() {
 
   /*
   |--------------------------------------------------------------------------
-  | RESEND
+  | RESEND INVITATION
   |--------------------------------------------------------------------------
   */
 
   const resendInvitation = async (
     invitation: Invitation
   ) => {
-    show(
-      `Resend functionality will use the email service later for ${invitation.email}`
-    );
+    /*
+     * Prevent duplicate clicks.
+     */
+
+    if (
+      resendingInvitationId !== null
+    ) {
+      return;
+    }
+
+    const token = getToken();
+
+    if (!token) {
+      setError(
+        'Authentication expired. Please login again.'
+      );
+      return;
+    }
+
+    try {
+      setError('');
+
+      setResendingInvitationId(
+        invitation._id
+      );
+
+      setResentInvitationId(null);
+
+      const response =
+        await fetch(
+          `${API_BASE_URL}/invitations/${invitation._id}/resend`,
+          {
+            method: 'POST',
+
+            headers: {
+              'Content-Type':
+                'application/json',
+
+              Authorization:
+                `Bearer ${token}`,
+            },
+
+            body: JSON.stringify({}),
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            'Failed to resend invitation'
+        );
+      }
+
+      /*
+       * Show successful resend.
+       */
+
+      setResentInvitationId(
+        invitation._id
+      );
+
+      show(
+        `Invitation resent to ${invitation.email}`
+      );
+
+      /*
+       * Refresh invitations so that
+       * the latest server state is shown.
+       */
+
+      await fetchInvitations();
+
+      /*
+       * Return button to Resend after 2 seconds.
+       */
+
+      window.setTimeout(() => {
+        setResentInvitationId(
+          (current) =>
+            current === invitation._id
+              ? null
+              : current
+        );
+      }, 2000);
+    } catch (err) {
+      console.error(
+        'Resend invitation error:',
+        err
+      );
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to resend invitation'
+      );
+    } finally {
+      setResendingInvitationId(null);
+    }
   };
 
+  /*
+  |--------------------------------------------------------------------------
+  | LOADING
+  |--------------------------------------------------------------------------
+  */
 
   if (loading) {
     return (
@@ -578,6 +744,12 @@ export default function Invitations() {
     );
   }
 
+  /*
+  |--------------------------------------------------------------------------
+  | NO EVENTS
+  |--------------------------------------------------------------------------
+  */
+
   if (events.length === 0) {
     return (
       <div className="p-6 max-w-6xl mx-auto">
@@ -588,7 +760,7 @@ export default function Invitations() {
           </h2>
 
           <p className="text-sm text-[#9090A8] mt-1">
-            Manage participant invitations
+            Manage invitations for your events
           </p>
         </div>
 
@@ -616,13 +788,21 @@ export default function Invitations() {
     );
   }
 
+  /*
+  |--------------------------------------------------------------------------
+  | MAIN PAGE
+  |--------------------------------------------------------------------------
+  */
+
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
+
       {notification && (
         <div className="fixed top-4 right-4 z-50 bg-[#3D9E8C] text-white px-5 py-3 rounded-2xl shadow-elevated text-sm font-medium">
           ✓ {notification}
         </div>
       )}
+
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm flex items-center justify-between gap-4">
 
@@ -647,9 +827,13 @@ export default function Invitations() {
         </h2>
 
         <p className="text-sm text-[#9090A8] mt-1">
-          Manage participant invitations for your events
+          Manage invitations for your events
         </p>
       </div>
+
+      {/* ================================================================
+          EVENT SELECTOR
+      ================================================================= */}
 
       <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-5">
 
@@ -674,6 +858,7 @@ export default function Invitations() {
             }
             className="w-full md:w-[320px] px-4 py-3 rounded-xl border border-[#E8E8F0] bg-[#FAFAF7] text-sm text-[#1A1A2E] focus:outline-none focus:border-[#5B6FD4] focus:ring-2 focus:ring-[#5B6FD4]/10"
           >
+
             <option value="">
               Select an event
             </option>
@@ -688,6 +873,7 @@ export default function Invitations() {
                 </option>
               )
             )}
+
           </select>
 
         </div>
@@ -881,7 +1067,7 @@ export default function Invitations() {
 
               <div>
                 <h3 className="font-semibold text-[#1A1A2E]">
-                  Participant Invitations
+                  Invitation Tracking
                 </h3>
 
                 <p className="text-xs text-[#9090A8] mt-1">
@@ -1059,14 +1245,32 @@ export default function Invitations() {
                             'pending' && (
                             <button
                               type="button"
+                              disabled={
+                                resendingInvitationId !==
+                                null
+                              }
                               onClick={() =>
                                 resendInvitation(
                                   invitation
                                 )
                               }
-                              className="text-xs text-[#5B6FD4] font-medium hover:underline"
+                              className={`text-xs font-medium transition-colors ${
+                                resendingInvitationId ===
+                                invitation._id
+                                  ? 'text-[#9090A8] cursor-not-allowed'
+                                  : resentInvitationId ===
+                                    invitation._id
+                                  ? 'text-[#3D9E8C]'
+                                  : 'text-[#5B6FD4] hover:underline'
+                              }`}
                             >
-                              Resend
+                              {resendingInvitationId ===
+                              invitation._id
+                                ? 'Sending...'
+                                : resentInvitationId ===
+                                  invitation._id
+                                ? 'Sent ✓'
+                                : 'Resend'}
                             </button>
                           )}
 
@@ -1126,9 +1330,7 @@ export default function Invitations() {
               className="space-y-5"
             >
 
-              {/* ========================================================
-                  EVENT
-              ========================================================= */}
+              {/* EVENT */}
 
               <div>
 
@@ -1181,9 +1383,7 @@ export default function Invitations() {
 
               </div>
 
-              {/* ========================================================
-                  NAME
-              ========================================================= */}
+              {/* NAME */}
 
               <div>
 
@@ -1205,9 +1405,7 @@ export default function Invitations() {
 
               </div>
 
-              {/* ========================================================
-                  EMAIL
-              ========================================================= */}
+              {/* EMAIL */}
 
               <div>
 
@@ -1229,9 +1427,7 @@ export default function Invitations() {
 
               </div>
 
-              {/* ========================================================
-                  ACTIONS
-              ========================================================= */}
+              {/* ACTIONS */}
 
               <div className="flex gap-3 pt-2">
 

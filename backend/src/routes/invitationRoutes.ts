@@ -10,6 +10,7 @@ import {
   sendInvitationOTP,
   verifyInvitationOTP,
   deleteInvitation,
+  resendInvitation,
 } from "../controllers/invitationController";
 
 const router = Router();
@@ -33,7 +34,14 @@ router.delete(
   deleteInvitation
 );
 
+router.post(
+  "/:invitationId/resend",
+  authMiddleware,
+  resendInvitation
+);
+
 // PUBLIC INVITATION ROUTES
+
 // =========================================================
 
 // ---------------------------------------------------------
@@ -43,7 +51,7 @@ router.delete(
 router.get(
   "/accept/:token",
   getInvitationByToken
-);-
+);
 
 router.post(
   "/accept/:token",
