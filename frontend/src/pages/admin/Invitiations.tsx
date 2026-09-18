@@ -59,11 +59,20 @@ export default function Invitations() {
   const [sending, setSending] =
     useState(false);
 
-  const [resendingInvitationId, setResendingInvitationId] =
-    useState<string | null>(null);
+  const [
+    resendingInvitationId,
+    setResendingInvitationId,
+  ] = useState<string | null>(null);
 
-  const [resentInvitationId, setResentInvitationId] =
-    useState<string | null>(null);
+  const [
+    resentInvitationId,
+    setResentInvitationId,
+  ] = useState<string | null>(null);
+
+  const [
+    deletingInvitationId,
+    setDeletingInvitationId,
+  ] = useState<string | null>(null);
 
   const [invitationLink, setInvitationLink] =
     useState('');
@@ -82,12 +91,6 @@ export default function Invitations() {
       setNotification('');
     }, 3000);
   }, []);
-
-  /*
-  |--------------------------------------------------------------------------
-  | FETCH EVENTS
-  |--------------------------------------------------------------------------
-  */
 
   const fetchEvents = useCallback(
     async () => {
@@ -127,11 +130,6 @@ export default function Invitations() {
             : data.events || [];
 
         setEvents(eventList);
-
-        /*
-         * Restore previously selected event
-         * if it still exists.
-         */
 
         const savedEventId =
           localStorage.getItem(
@@ -178,12 +176,6 @@ export default function Invitations() {
     },
     []
   );
-
-  /*
-  |--------------------------------------------------------------------------
-  | FETCH INVITATIONS
-  |--------------------------------------------------------------------------
-  */
 
   const fetchInvitations = useCallback(
     async () => {
@@ -236,12 +228,6 @@ export default function Invitations() {
     []
   );
 
-  /*
-  |--------------------------------------------------------------------------
-  | INITIAL LOAD
-  |--------------------------------------------------------------------------
-  */
-
   useEffect(() => {
     const timer =
       window.setTimeout(() => {
@@ -261,12 +247,6 @@ export default function Invitations() {
     fetchInvitations,
   ]);
 
-  /*
-  |--------------------------------------------------------------------------
-  | SELECTED EVENT
-  |--------------------------------------------------------------------------
-  */
-
   const selectedEvent =
     useMemo(() => {
       return events.find(
@@ -277,12 +257,6 @@ export default function Invitations() {
       events,
       selectedEventId,
     ]);
-
-  /*
-  |--------------------------------------------------------------------------
-  | EVENT INVITATIONS
-  |--------------------------------------------------------------------------
-  */
 
   const eventInvitations =
     useMemo(() => {
@@ -309,12 +283,6 @@ export default function Invitations() {
       selectedEventId,
     ]);
 
-  /*
-  |--------------------------------------------------------------------------
-  | EVENT CHANGE
-  |--------------------------------------------------------------------------
-  */
-
   const handleEventChange = (
     eventId: string
   ) => {
@@ -328,12 +296,6 @@ export default function Invitations() {
     setInvitationLink('');
     setError('');
   };
-
-  /*
-  |--------------------------------------------------------------------------
-  | INVITATION STATS
-  |--------------------------------------------------------------------------
-  */
 
   const pendingInvitations =
     eventInvitations.filter(
@@ -407,12 +369,6 @@ export default function Invitations() {
     },
   ];
 
-  /*
-  |--------------------------------------------------------------------------
-  | COPY INVITATION LINK
-  |--------------------------------------------------------------------------
-  */
-
   const copyLink = async (
     link: string
   ) => {
@@ -442,12 +398,6 @@ export default function Invitations() {
     }
   };
 
-  /*
-  |--------------------------------------------------------------------------
-  | SEND INVITATION
-  |--------------------------------------------------------------------------
-  */
-
   const sendInvite = async (
     e: React.FormEvent
   ) => {
@@ -456,20 +406,12 @@ export default function Invitations() {
     setError('');
     setInvitationLink('');
 
-    /*
-     * NAME
-     */
-
     if (!name.trim()) {
       setError(
         'Please enter participant name.'
       );
       return;
     }
-
-    /*
-     * EMAIL
-     */
 
     if (!email.trim()) {
       setError(
@@ -478,20 +420,12 @@ export default function Invitations() {
       return;
     }
 
-    /*
-     * EVENT
-     */
-
     if (!selectedEventId) {
       setError(
         'Please select an event.'
       );
       return;
     }
-
-    /*
-     * TOKEN
-     */
 
     const token = getToken();
 
@@ -544,10 +478,6 @@ export default function Invitations() {
         );
       }
 
-      /*
-       * Add new invitation to local state.
-       */
-
       if (data.invitation) {
         setInvitations(
           (previous) => [
@@ -555,13 +485,6 @@ export default function Invitations() {
             ...previous,
           ]
         );
-
-        /*
-         * Generate invitation link.
-         *
-         * Use current frontend host so it works
-         * on localhost and Vercel.
-         */
 
         if (
           data.invitation.token
@@ -575,19 +498,11 @@ export default function Invitations() {
         await fetchInvitations();
       }
 
-      /*
-       * Reset participant fields.
-       */
-
       const invitedEmail =
         email.trim();
 
       setName('');
       setEmail('');
-
-      /*
-       * Return to overview.
-       */
 
       setTab('overview');
 
@@ -610,21 +525,12 @@ export default function Invitations() {
     }
   };
 
-  /*
-  |--------------------------------------------------------------------------
-  | RESEND INVITATION
-  |--------------------------------------------------------------------------
-  */
-
   const resendInvitation = async (
     invitation: Invitation
   ) => {
-    /*
-     * Prevent duplicate clicks.
-     */
-
     if (
-      resendingInvitationId !== null
+      resendingInvitationId !== null ||
+      deletingInvitationId !== null
     ) {
       return;
     }
@@ -675,10 +581,6 @@ export default function Invitations() {
         );
       }
 
-      /*
-       * Show successful resend.
-       */
-
       setResentInvitationId(
         invitation._id
       );
@@ -687,16 +589,7 @@ export default function Invitations() {
         `Invitation resent to ${invitation.email}`
       );
 
-      /*
-       * Refresh invitations so that
-       * the latest server state is shown.
-       */
-
       await fetchInvitations();
-
-      /*
-       * Return button to Resend after 2 seconds.
-       */
 
       window.setTimeout(() => {
         setResentInvitationId(
@@ -722,38 +615,109 @@ export default function Invitations() {
     }
   };
 
-  /*
-  |--------------------------------------------------------------------------
-  | LOADING
-  |--------------------------------------------------------------------------
-  */
+  const deleteParticipant = async (
+    invitation: Invitation
+  ) => {
+    if (
+      deletingInvitationId !== null ||
+      resendingInvitationId !== null
+    ) {
+      return;
+    }
+
+    // const confirmed =
+    //   window.confirm(
+    //     `Are you sure you want to delete ${invitation.name}?`
+    //   );
+
+    // if (!confirmed) {
+    //   return;
+    // }
+
+    const token = getToken();
+
+    if (!token) {
+      setError(
+        'Authentication expired. Please login again.'
+      );
+      return;
+    }
+
+    try {
+      setError('');
+
+      setDeletingInvitationId(
+        invitation._id
+      );
+
+      const response =
+        await fetch(
+          `${API_BASE_URL}/invitations/${invitation._id}`,
+          {
+            method: 'DELETE',
+
+            headers: {
+              Authorization:
+                `Bearer ${token}`,
+            },
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            'Failed to delete participant'
+        );
+      }
+
+      setInvitations(
+        (previous) =>
+          previous.filter(
+            (item) =>
+              item._id !==
+              invitation._id
+          )
+      );
+
+      show(
+        `${invitation.name} deleted successfully`
+      );
+    } catch (err) {
+      console.error(
+        'Delete participant error:',
+        err
+      );
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to delete participant'
+      );
+    } finally {
+      setDeletingInvitationId(null);
+    }
+  };
 
   if (loading) {
     return (
       <div className="p-6 max-w-6xl mx-auto">
         <div className="bg-white rounded-2xl border border-[#E8E8F0] p-10 text-center">
-
           <div className="w-8 h-8 border-4 border-[#EEF2FF] border-t-[#5B6FD4] rounded-full animate-spin mx-auto mb-3" />
 
           <p className="text-sm text-[#9090A8]">
             Loading invitations...
           </p>
-
         </div>
       </div>
     );
   }
 
-  /*
-  |--------------------------------------------------------------------------
-  | NO EVENTS
-  |--------------------------------------------------------------------------
-  */
-
   if (events.length === 0) {
     return (
       <div className="p-6 max-w-6xl mx-auto">
-
         <div className="mb-8">
           <h2 className="font-display text-2xl text-[#1A1A2E]">
             Invitations
@@ -765,13 +729,10 @@ export default function Invitations() {
         </div>
 
         <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-12 text-center">
-
           <div className="w-14 h-14 bg-[#EEF2FF] rounded-2xl flex items-center justify-center mx-auto mb-4">
-
             <span className="text-2xl text-[#5B6FD4]">
               ✉
             </span>
-
           </div>
 
           <h3 className="font-semibold text-[#1A1A2E]">
@@ -781,22 +742,13 @@ export default function Invitations() {
           <p className="text-sm text-[#9090A8] mt-2">
             Create an event before sending invitations.
           </p>
-
         </div>
-
       </div>
     );
   }
 
-  /*
-  |--------------------------------------------------------------------------
-  | MAIN PAGE
-  |--------------------------------------------------------------------------
-  */
-
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
-
       {notification && (
         <div className="fixed top-4 right-4 z-50 bg-[#3D9E8C] text-white px-5 py-3 rounded-2xl shadow-elevated text-sm font-medium">
           ✓ {notification}
@@ -805,7 +757,6 @@ export default function Invitations() {
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm flex items-center justify-between gap-4">
-
           <span>{error}</span>
 
           <button
@@ -817,7 +768,6 @@ export default function Invitations() {
           >
             Close
           </button>
-
         </div>
       )}
 
@@ -831,14 +781,8 @@ export default function Invitations() {
         </p>
       </div>
 
-      {/* ================================================================
-          EVENT SELECTOR
-      ================================================================= */}
-
       <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-5">
-
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-
           <div>
             <p className="text-xs font-semibold text-[#9090A8] uppercase tracking-wider">
               Event
@@ -858,7 +802,6 @@ export default function Invitations() {
             }
             className="w-full md:w-[320px] px-4 py-3 rounded-xl border border-[#E8E8F0] bg-[#FAFAF7] text-sm text-[#1A1A2E] focus:outline-none focus:border-[#5B6FD4] focus:ring-2 focus:ring-[#5B6FD4]/10"
           >
-
             <option value="">
               Select an event
             </option>
@@ -873,14 +816,11 @@ export default function Invitations() {
                 </option>
               )
             )}
-
           </select>
-
         </div>
 
         {selectedEvent && (
           <div className="mt-4 pt-4 border-t border-[#F0F0F8] flex flex-wrap gap-x-6 gap-y-2">
-
             {selectedEvent.venue && (
               <div>
                 <p className="text-xs text-[#9090A8]">
@@ -904,26 +844,17 @@ export default function Invitations() {
                 </p>
               </div>
             )}
-
           </div>
         )}
-
       </div>
 
-      {/* ================================================================
-          STATS
-      ================================================================= */}
-
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-
         {stats.map((stat) => (
           <div
             key={stat.label}
             className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-5"
           >
-
             <div className="flex items-center justify-between mb-2">
-
               <p className="text-xs font-medium text-[#9090A8] uppercase tracking-wider">
                 {stat.label}
               </p>
@@ -936,7 +867,6 @@ export default function Invitations() {
               >
                 {stat.pct}%
               </span>
-
             </div>
 
             <p
@@ -949,7 +879,6 @@ export default function Invitations() {
             </p>
 
             <div className="mt-3 h-1 bg-[#F0F0F8] rounded-full overflow-hidden">
-
               <div
                 className="h-full rounded-full transition-all"
                 style={{
@@ -958,27 +887,16 @@ export default function Invitations() {
                     stat.color,
                 }}
               />
-
             </div>
-
           </div>
         ))}
-
       </div>
-
-      {/* ================================================================
-          INVITATION LINK
-      ================================================================= */}
 
       {invitationLink && (
         <div className="bg-[#E6F4F1] border border-[#B9E3D9] rounded-2xl p-5">
-
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-
             <div className="min-w-0">
-
               <div className="flex items-center gap-2">
-
                 <span className="w-7 h-7 rounded-full bg-[#3D9E8C] text-white flex items-center justify-center text-sm font-bold">
                   ✓
                 </span>
@@ -986,7 +904,6 @@ export default function Invitations() {
                 <h3 className="font-semibold text-[#1A1A2E]">
                   Invitation created
                 </h3>
-
               </div>
 
               <p className="text-sm text-[#5A5A72] mt-2">
@@ -996,7 +913,6 @@ export default function Invitations() {
               <div className="mt-3 px-4 py-3 bg-white border border-[#D8E8E3] rounded-xl text-sm font-mono text-[#5A5A72] break-all">
                 {invitationLink}
               </div>
-
             </div>
 
             <button
@@ -1012,18 +928,11 @@ export default function Invitations() {
                 ? 'Copied!'
                 : 'Copy Link'}
             </button>
-
           </div>
-
         </div>
       )}
 
-      {/* ================================================================
-          TABS
-      ================================================================= */}
-
       <div className="flex gap-1 bg-[#F3F2EC] rounded-xl p-1 w-fit">
-
         <button
           type="button"
           onClick={() =>
@@ -1051,20 +960,12 @@ export default function Invitations() {
         >
           Send Invite
         </button>
-
       </div>
-
-      {/* ================================================================
-          OVERVIEW
-      ================================================================= */}
 
       {tab === 'overview' && (
         <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft overflow-hidden">
-
           <div className="px-6 py-5 border-b border-[#F0F0F8]">
-
             <div className="flex items-center justify-between">
-
               <div>
                 <h3 className="font-semibold text-[#1A1A2E]">
                   Invitation Tracking
@@ -1085,14 +986,11 @@ export default function Invitations() {
                   ? 's'
                   : ''}
               </span>
-
             </div>
-
           </div>
 
           {!selectedEventId ? (
             <div className="p-12 text-center">
-
               <p className="font-semibold text-[#1A1A2E]">
                 Select an event
               </p>
@@ -1100,18 +998,14 @@ export default function Invitations() {
               <p className="text-sm text-[#9090A8] mt-1">
                 Choose an event above to view its invitations.
               </p>
-
             </div>
           ) : eventInvitations.length ===
             0 ? (
             <div className="p-12 text-center">
-
               <div className="w-12 h-12 bg-[#EEF2FF] rounded-2xl flex items-center justify-center mx-auto mb-3">
-
                 <span className="text-xl text-[#5B6FD4]">
                   ✉
                 </span>
-
               </div>
 
               <h3 className="font-semibold text-[#1A1A2E]">
@@ -1131,16 +1025,12 @@ export default function Invitations() {
               >
                 Send Invitation
               </button>
-
             </div>
           ) : (
             <div className="overflow-x-auto">
-
               <table className="w-full text-sm">
-
                 <thead>
                   <tr className="border-b border-[#F0F0F8]">
-
                     <th className="text-left px-6 py-3 text-xs font-semibold text-[#9090A8] uppercase tracking-wider">
                       Participant
                     </th>
@@ -1156,12 +1046,10 @@ export default function Invitations() {
                     <th className="text-left px-6 py-3 text-xs font-semibold text-[#9090A8] uppercase tracking-wider">
                       Actions
                     </th>
-
                   </tr>
                 </thead>
 
                 <tbody className="divide-y divide-[#F0F0F8]">
-
                   {eventInvitations.map(
                     (invitation) => (
                       <tr
@@ -1170,13 +1058,8 @@ export default function Invitations() {
                         }
                         className="hover:bg-[#FAFAF7] transition-colors"
                       >
-
-                        {/* PARTICIPANT */}
-
                         <td className="px-6 py-4">
-
                           <div className="flex items-center gap-3">
-
                             <div className="w-9 h-9 rounded-full bg-[#EEF2FF] flex items-center justify-center text-[#5B6FD4] font-semibold text-sm">
                               {invitation.name
                                 .charAt(0)
@@ -1184,7 +1067,6 @@ export default function Invitations() {
                             </div>
 
                             <div>
-
                               <p className="font-medium text-[#1A1A2E]">
                                 {invitation.name}
                               </p>
@@ -1198,29 +1080,19 @@ export default function Invitations() {
                                   {invitation.mobile}
                                 </p>
                               )}
-
                             </div>
-
                           </div>
-
                         </td>
 
-                        {/* STATUS */}
-
                         <td className="px-6 py-4">
-
                           <InvBadge
                             status={
                               invitation.status
                             }
                           />
-
                         </td>
 
-                        {/* EXPIRY */}
-
                         <td className="px-6 py-4 text-xs text-[#9090A8]">
-
                           {new Date(
                             invitation.expiresAt
                           ).toLocaleDateString(
@@ -1234,87 +1106,100 @@ export default function Invitations() {
                                 'numeric',
                             }
                           )}
-
                         </td>
 
-                        {/* ACTION */}
-
                         <td className="px-6 py-4">
+                          <div className="flex items-center gap-4">
+                            {invitation.status ===
+                              'pending' && (
+                              <button
+                                type="button"
+                                disabled={
+                                  resendingInvitationId !==
+                                    null ||
+                                  deletingInvitationId !==
+                                    null
+                                }
+                                onClick={() =>
+                                  resendInvitation(
+                                    invitation
+                                  )
+                                }
+                                className={`text-xs font-medium transition-colors ${
+                                  resendingInvitationId ===
+                                  invitation._id
+                                    ? 'text-[#9090A8] cursor-not-allowed'
+                                    : resentInvitationId ===
+                                      invitation._id
+                                    ? 'text-[#3D9E8C]'
+                                    : 'text-[#5B6FD4] hover:underline'
+                                }`}
+                              >
+                                {resendingInvitationId ===
+                                invitation._id
+                                  ? 'Sending...'
+                                  : resentInvitationId ===
+                                    invitation._id
+                                  ? 'Sent ✓'
+                                  : 'Resend'}
+                              </button>
+                            )}
 
-                          {invitation.status ===
-                            'pending' && (
+                            {invitation.status ===
+                              'accepted' && (
+                              <span className="text-xs text-[#3D9E8C] font-medium">
+                                Accepted
+                              </span>
+                            )}
+
+                            {invitation.status ===
+                              'expired' && (
+                              <span className="text-xs text-[#D95B5B] font-medium">
+                                Expired
+                              </span>
+                            )}
+
                             <button
                               type="button"
                               disabled={
+                                deletingInvitationId !==
+                                  null ||
                                 resendingInvitationId !==
-                                null
+                                  null
                               }
                               onClick={() =>
-                                resendInvitation(
+                                deleteParticipant(
                                   invitation
                                 )
                               }
                               className={`text-xs font-medium transition-colors ${
-                                resendingInvitationId ===
+                                deletingInvitationId ===
                                 invitation._id
                                   ? 'text-[#9090A8] cursor-not-allowed'
-                                  : resentInvitationId ===
-                                    invitation._id
-                                  ? 'text-[#3D9E8C]'
-                                  : 'text-[#5B6FD4] hover:underline'
+                                  : 'text-[#D95B5B] hover:underline'
                               }`}
                             >
-                              {resendingInvitationId ===
+                              {deletingInvitationId ===
                               invitation._id
-                                ? 'Sending...'
-                                : resentInvitationId ===
-                                  invitation._id
-                                ? 'Sent ✓'
-                                : 'Resend'}
+                                ? 'Deleting...'
+                                : 'Delete'}
                             </button>
-                          )}
-
-                          {invitation.status ===
-                            'accepted' && (
-                            <span className="text-xs text-[#3D9E8C] font-medium">
-                              Accepted
-                            </span>
-                          )}
-
-                          {invitation.status ===
-                            'expired' && (
-                            <span className="text-xs text-[#D95B5B] font-medium">
-                              Expired
-                            </span>
-                          )}
-
+                          </div>
                         </td>
-
                       </tr>
                     )
                   )}
-
                 </tbody>
-
               </table>
-
             </div>
           )}
-
         </div>
       )}
 
-      {/* ================================================================
-          CREATE INVITATION
-      ================================================================= */}
-
       {tab === 'create' && (
         <div className="max-w-lg">
-
           <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-6">
-
             <div className="mb-6">
-
               <h3 className="font-semibold text-[#1A1A2E]">
                 Send Individual Invitation
               </h3>
@@ -1322,18 +1207,13 @@ export default function Invitations() {
               <p className="text-sm text-[#9090A8] mt-1">
                 Invite a participant to a specific event.
               </p>
-
             </div>
 
             <form
               onSubmit={sendInvite}
               className="space-y-5"
             >
-
-              {/* EVENT */}
-
               <div>
-
                 <label className="block text-sm font-medium text-[#1A1A2E] mb-1.5">
                   Event
                 </label>
@@ -1349,7 +1229,6 @@ export default function Invitations() {
                   }
                   className="w-full px-4 py-2.5 rounded-xl border border-[#E8E8F0] bg-[#FAFAF7] text-sm text-[#1A1A2E] focus:outline-none focus:border-[#5B6FD4] focus:ring-2 focus:ring-[#5B6FD4]/10 transition-all"
                 >
-
                   <option value="">
                     Select an event
                   </option>
@@ -1368,7 +1247,6 @@ export default function Invitations() {
                       </option>
                     )
                   )}
-
                 </select>
 
                 {selectedEvent && (
@@ -1380,13 +1258,9 @@ export default function Invitations() {
                       : 'No venue specified'}
                   </p>
                 )}
-
               </div>
 
-              {/* NAME */}
-
               <div>
-
                 <label className="block text-sm font-medium text-[#1A1A2E] mb-1.5">
                   Full Name
                 </label>
@@ -1402,13 +1276,9 @@ export default function Invitations() {
                   placeholder="Alex Johnson"
                   className="w-full px-4 py-2.5 rounded-xl border border-[#E8E8F0] bg-[#FAFAF7] text-sm focus:outline-none focus:border-[#5B6FD4] focus:ring-2 focus:ring-[#5B6FD4]/10 transition-all"
                 />
-
               </div>
 
-              {/* EMAIL */}
-
               <div>
-
                 <label className="block text-sm font-medium text-[#1A1A2E] mb-1.5">
                   Email Address
                 </label>
@@ -1424,13 +1294,9 @@ export default function Invitations() {
                   placeholder="alex@company.com"
                   className="w-full px-4 py-2.5 rounded-xl border border-[#E8E8F0] bg-[#FAFAF7] text-sm focus:outline-none focus:border-[#5B6FD4] focus:ring-2 focus:ring-[#5B6FD4]/10 transition-all"
                 />
-
               </div>
 
-              {/* ACTIONS */}
-
               <div className="flex gap-3 pt-2">
-
                 <button
                   type="submit"
                   disabled={sending}
@@ -1453,25 +1319,14 @@ export default function Invitations() {
                 >
                   Cancel
                 </button>
-
               </div>
-
             </form>
-
           </div>
-
         </div>
       )}
-
     </div>
   );
 }
-
-/*
-|--------------------------------------------------------------------------
-| INVITATION BADGE
-|--------------------------------------------------------------------------
-*/
 
 function InvBadge({
   status,
