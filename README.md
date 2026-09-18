@@ -35,11 +35,3 @@
 </div>
 
 ---
-
-```text
-🎤 Conference
-💍 Marriage
-🎓 Graduation
-🏢 Corporate Event
-🎉 Private Event
-🏫 School Event
