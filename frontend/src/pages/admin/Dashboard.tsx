@@ -1,14 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 
-interface DashboardProps {
-  onNavigate: (page: string, id?: string) => void;
-}
+import API_BASE_URL from "../../config/api";
 
-// =========================================================
-// EVENT TYPE
-// =========================================================
-
-interface Event {
+export interface Event {
   _id: string;
   name: string;
   type: string;
@@ -38,9 +32,18 @@ interface Event {
   updatedAt: string;
 }
 
-// =========================================================
-// USER TYPE
-// =========================================================
+interface DashboardProps {
+  onNavigate: (
+    page: string,
+    id?: string
+  ) => void;
+
+  selectedEvent: Event | null;
+
+  onEventChange: (
+    event: Event | null
+  ) => void;
+}
 
 interface ParticipantUser {
   _id: string;
@@ -49,10 +52,6 @@ interface ParticipantUser {
   role?: string;
   createdAt?: string;
 }
-
-// =========================================================
-// EVENT PARTICIPANT TYPE
-// =========================================================
 
 interface EventParticipant {
   _id: string;
@@ -68,7 +67,12 @@ interface EventParticipant {
     | string
     | ParticipantUser;
 
-  status: 'registered' | 'accepted' | 'pending' | 'cancelled' | string;
+  status:
+    | "registered"
+    | "accepted"
+    | "pending"
+    | "cancelled"
+    | string;
 
   registrationCompleted?: boolean;
 
@@ -79,283 +83,247 @@ interface EventParticipant {
   updatedAt?: string;
 }
 
-
-// =========================================================
-// ACTIVITY TYPE
-// =========================================================
-
-
-// =========================================================
-// MAIN DASHBOARD
-// =========================================================
-
 export default function AdminDashboard({
   onNavigate,
+  selectedEvent,
+  onEventChange,
 }: DashboardProps) {
-  const [events, setEvents] = useState<Event[]>([]);
-
-  const [selectedEvent, setSelectedEvent] =
-    useState<Event | null>(null);
+  const [events, setEvents] =
+    useState<Event[]>([]);
 
   const [participants, setParticipants] =
-    useState<EventParticipant[]>([]);
+    useState<EventParticipant[]>(
+      []
+    );
 
+  const [loading, setLoading] =
+    useState(true);
 
-  const [loading, setLoading] = useState(true);
+  const [
+    participantsLoading,
+    setParticipantsLoading,
+  ] = useState(false);
 
-  const [, setParticipantsLoading] =
-    useState(false);
-
-  const [error, setError] = useState('');
-
-  // =======================================================
-  // GET EVENTS
-  // =======================================================
+  const [error, setError] =
+    useState("");
 
   useEffect(() => {
-    const fetchEvents = async () => {
-      try {
-        setLoading(true);
-        setError('');
+    const fetchEvents =
+      async () => {
+        try {
+          setLoading(true);
+          setError("");
 
-        const token = localStorage.getItem('token');
+          const token =
+            localStorage.getItem(
+              "token"
+            );
 
-        if (!token) {
-          throw new Error('You are not logged in.');
-        }
-
-        const response = await fetch(
-          'https://event-flow-nine.vercel.app/api/events',
-          {
-            method: 'GET',
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+          if (!token) {
+            throw new Error(
+              "You are not logged in."
+            );
           }
-        );
 
-        const data = await response.json();
+          const response =
+            await fetch(
+              `${API_BASE_URL}/events`,
+              {
+                method: "GET",
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            );
 
-        if (!response.ok) {
-          throw new Error(
-            data.message || 'Failed to load events.'
+          const data =
+            await response.json();
+
+          if (!response.ok) {
+            throw new Error(
+              data.message ||
+                "Failed to load events."
+            );
+          }
+
+          const loadedEvents: Event[] =
+            data.events || [];
+
+          setEvents(
+            loadedEvents
           );
+
+          if (
+            loadedEvents.length ===
+            0
+          ) {
+            onEventChange(null);
+            return;
+          }
+
+          if (selectedEvent) {
+            const existingEvent =
+              loadedEvents.find(
+                (event) =>
+                  event._id ===
+                  selectedEvent._id
+              );
+
+            if (existingEvent) {
+              onEventChange(
+                existingEvent
+              );
+            } else {
+              onEventChange(
+                loadedEvents[0]
+              );
+            }
+          } else {
+            onEventChange(
+              loadedEvents[0]
+            );
+          }
+        } catch (err) {
+          if (
+            err instanceof Error
+          ) {
+            setError(
+              err.message
+            );
+          } else {
+            setError(
+              "Failed to load events."
+            );
+          }
+        } finally {
+          setLoading(false);
         }
+      };
 
-        const loadedEvents: Event[] =
-          data.events || [];
-
-        setEvents(loadedEvents);
-
-        if (loadedEvents.length > 0) {
-          setSelectedEvent(loadedEvents[0]);
-        }
-      } catch (err) {
-        if (err instanceof Error) {
-          setError(err.message);
-        } else {
-          setError('Failed to load events.');
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchEvents();
+    void fetchEvents();
   }, []);
 
-  // =======================================================
-  // GET PARTICIPANTS FOR SELECTED EVENT
-  // =======================================================
-
   useEffect(() => {
-    const fetchParticipants = async () => {
-      if (!selectedEvent) {
-        setParticipants([]);
-        return;
-      }
-
-      try {
-        setParticipantsLoading(true);
-
-        const token = localStorage.getItem('token');
-
-        if (!token) {
-          throw new Error('You are not logged in.');
+    const fetchParticipants =
+      async () => {
+        if (!selectedEvent) {
+          setParticipants([]);
+          return;
         }
 
-        const response = await fetch(
-          `https://event-flow-nine.vercel.app/api/event-participants/event/${selectedEvent._id}`,
-          {
-            method: 'GET',
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+        try {
+          setParticipantsLoading(
+            true
+          );
+
+          const token =
+            localStorage.getItem(
+              "token"
+            );
+
+          if (!token) {
+            return;
           }
-        );
 
-        const data = await response.json();
+          const response =
+            await fetch(
+              `${API_BASE_URL}/event-participants/event/${selectedEvent._id}`,
+              {
+                method: "GET",
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            );
 
-        if (!response.ok) {
-          throw new Error(
-            data.message ||
-              'Failed to load participants.'
+          const data =
+            await response.json();
+
+          if (!response.ok) {
+            throw new Error(
+              data.message ||
+                "Failed to load participants."
+            );
+          }
+
+          setParticipants(
+            data.participants ||
+              []
+          );
+        } catch (err) {
+          console.error(
+            "Failed to load participants:",
+            err
+          );
+
+          setParticipants([]);
+        } finally {
+          setParticipantsLoading(
+            false
           );
         }
+      };
 
-        setParticipants(data.participants || []);
-      } catch (err) {
-        console.error(
-          'Failed to load participants:',
-          err
-        );
-
-        setParticipants([]);
-      } finally {
-        setParticipantsLoading(false);
-      }
-    };
-
-    fetchParticipants();
+    void fetchParticipants();
   }, [selectedEvent]);
 
-  // =======================================================
-  // GET INVITATIONS
-  // =======================================================
+  const registered =
+    participants.length;
 
-  useEffect(() => {
-    const fetchInvitations = async () => {
-      try {
-        const token = localStorage.getItem('token');
+  const confirmed =
+    participants.filter(
+      (participant) =>
+        participant.status ===
+          "registered" ||
+        participant.status ===
+          "accepted"
+    ).length;
 
-        if (!token) {
-          return;
-        }
+  const pending =
+    participants.filter(
+      (participant) =>
+        participant.status ===
+        "pending"
+    ).length;
 
-        const response = await fetch(
-          'https://event-flow-nine.vercel.app/api/invitations',
-          {
-            method: 'GET',
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          console.error(
-            'Failed to load invitations:',
-            data.message
-          );
-
-          return;
-        }
-
-        // setInvitations(data.invitations || []);
-      } catch (err) {
-        console.error(
-          'Failed to load invitations:',
-          err
-        );
-      }
-    };
-
-    fetchInvitations();
-  }, []);
-
- 
-
-  // =======================================================
-  // REAL PARTICIPANT STATISTICS
-  // =======================================================
-
-  const registered = participants.length;
-
-  /*
-   * Your current backend creates EventParticipant
-   * with status = "registered" after invitation acceptance.
-   *
-   * Therefore "registered" is treated as confirmed
-   * for the current implementation.
-   */
-
-  const confirmed = participants.filter(
-    (participant) =>
-      participant.status === 'registered' ||
-      participant.status === 'accepted'
-  ).length;
-
-  const pending = participants.filter(
-    (participant) =>
-      participant.status === 'pending'
-  ).length;
-
-  /*
-   * Documents are not connected to the dashboard yet.
-   *
-   * We deliberately show 0 instead of fake/mock data.
-   */
   const pendingDocs = 0;
-
-  /*
-   * Your current Event model doesn't contain a capacity
-   * field, so we don't use the old fake value of 1000.
-   */
-  const capacity: number | null = null;
-
-  // =======================================================
-  // STATS
-  // =======================================================
 
   const stats = [
     {
-      label: 'Registered',
+      label: "Registered",
       value: registered,
-      total: capacity,
-      color: '#5B6FD4',
-      bg: 'gradient-card-blue',
+      total: null as number | null,
+      color: "#5B6FD4",
+      bg: "gradient-card-blue",
     },
-
     {
-      label: 'Confirmed',
+      label: "Confirmed",
       value: confirmed,
       total: registered,
-      color: '#3D9E8C',
-      bg: 'gradient-card-teal',
+      color: "#3D9E8C",
+      bg: "gradient-card-teal",
     },
-
     {
-      label: 'Pending',
+      label: "Pending",
       value: pending,
       total: registered,
-      color: '#E8A438',
-      bg: 'gradient-card-peach',
+      color: "#E8A438",
+      bg: "gradient-card-peach",
     },
-
     {
-      label: 'Docs Pending',
+      label: "Docs Pending",
       value: pendingDocs,
       total: registered,
-      color: '#9B7ECB',
-      bg: 'gradient-card-lavender',
+      color: "#9B7ECB",
+      bg: "gradient-card-lavender",
     },
   ];
-
- 
- 
-  // =======================================================
-  // LOADING STATE
-  // =======================================================
 
   if (loading) {
     return (
       <div className="p-6 max-w-7xl mx-auto">
         <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-10 text-center">
-
           <div className="flex justify-center mb-4">
-
             <svg
               className="w-8 h-8 animate-spin text-[#5B6FD4]"
               fill="none"
@@ -376,28 +344,20 @@ export default function AdminDashboard({
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
               />
             </svg>
-
           </div>
 
           <p className="text-sm text-[#9090A8]">
             Loading your events...
           </p>
-
         </div>
       </div>
     );
   }
 
-  // =======================================================
-  // ERROR STATE
-  // =======================================================
-
   if (error) {
     return (
       <div className="p-6 max-w-7xl mx-auto">
-
         <div className="bg-white rounded-2xl border border-red-100 shadow-soft p-8 text-center">
-
           <div className="text-red-500 text-3xl mb-3">
             !
           </div>
@@ -418,28 +378,15 @@ export default function AdminDashboard({
           >
             Try Again
           </button>
-
         </div>
-
       </div>
     );
   }
 
-  // =======================================================
-  // MAIN DASHBOARD
-  // =======================================================
-
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-8">
-
-      {/* ================================================= */}
-      {/* WELCOME + EVENT */}
-      {/* ================================================= */}
-
       <div className="flex flex-col lg:flex-row gap-5">
-
         <div className="flex-1 gradient-primary rounded-2xl p-6 text-white shadow-card">
-
           <p className="text-white/70 text-sm mb-1">
             Welcome back,
           </p>
@@ -451,7 +398,6 @@ export default function AdminDashboard({
           {selectedEvent ? (
             <>
               <div className="flex flex-wrap gap-4">
-
                 <div>
                   <p className="text-white/60 text-xs uppercase tracking-wider">
                     Event
@@ -472,14 +418,15 @@ export default function AdminDashboard({
                       ? new Date(
                           selectedEvent.startDate
                         ).toLocaleDateString(
-                          'en-US',
+                          "en-US",
                           {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
+                            month:
+                              "short",
+                            day: "numeric",
+                            year: "numeric",
                           }
                         )
-                      : 'Not set'}
+                      : "Not set"}
                   </p>
                 </div>
 
@@ -490,17 +437,13 @@ export default function AdminDashboard({
 
                   <p className="font-semibold">
                     {selectedEvent.location ||
-                      'Not set'}
+                      "Not set"}
                   </p>
                 </div>
-
               </div>
-
-              {/* EVENT SELECTOR */}
 
               {events.length > 1 && (
                 <div className="mt-5">
-
                   <label className="text-xs text-white/60 uppercase tracking-wider">
                     Dashboard Event
                   </label>
@@ -512,69 +455,68 @@ export default function AdminDashboard({
                     onChange={(e) => {
                       const event =
                         events.find(
-                          (ev) =>
-                            ev._id ===
+                          (item) =>
+                            item._id ===
                             e.target.value
                         );
 
                       if (event) {
-                        setSelectedEvent(
+                        onEventChange(
                           event
                         );
                       }
                     }}
-                    className="mt-1 w-full  bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm text-white outline-none"
+                    className="mt-1 w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm text-white outline-none"
                   >
-                    {events.map((event) => (
-                      <option
-                        key={event._id}
-                        value={event._id}
-                        className="text-[#1A1A2E]"
-                      >
-                        {event.name}
-                      </option>
-                    ))}
+                    {events.map(
+                      (event) => (
+                        <option
+                          key={
+                            event._id
+                          }
+                          value={
+                            event._id
+                          }
+                          className="text-[#1A1A2E]"
+                        >
+                          {event.name}
+                        </option>
+                      )
+                    )}
                   </select>
-
                 </div>
               )}
 
-              {/* CAPACITY */}
-
               <div className="mt-4">
-
                 <div className="flex justify-between text-xs text-white/70 mb-1">
-
                   <span>
-                    Registered participants
+                    Registered
+                    participants
                   </span>
 
                   <span>
-                    {registered}
+                    {participantsLoading
+                      ? "..."
+                      : registered}
                   </span>
-
                 </div>
 
                 <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
-
                   <div
                     className="h-full bg-white rounded-full transition-all"
                     style={{
                       width:
-                        registered > 0
-                          ? '100%'
-                          : '0%',
+                        registered >
+                        0
+                          ? "100%"
+                          : "0%",
                     }}
                   />
-
                 </div>
-
               </div>
-
             </>
           ) : (
             <div>
-
               <p className="text-white/70 text-sm">
                 You haven't created an event yet.
               </p>
@@ -582,100 +524,52 @@ export default function AdminDashboard({
               <button
                 onClick={() =>
                   onNavigate(
-                    'event-builder'
+                    "event-builder"
                   )
                 }
                 className="mt-4 bg-white text-[#5B6FD4] px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90"
               >
                 Create Your First Event
               </button>
-
             </div>
           )}
-
         </div>
 
-        {/* ================================================= */}
-        {/* QUICK ACTIONS */}
-        {/* ================================================= */}
-
         <div className="bg-white rounded-2xl p-6 border border-[#E8E8F0] shadow-soft lg:w-72">
-
           <h3 className="font-semibold text-[#1A1A2E] mb-4">
             Quick Actions
           </h3>
 
           <div className="space-y-2">
+            <button
+              onClick={() =>
+                onNavigate(
+                  "invitations"
+                )
+              }
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[#EEF2FF] text-[#5B6FD4] hover:opacity-80 transition-opacity text-sm font-medium"
+            >
+              <span className="w-2 h-2 rounded-full bg-[#5B6FD4]" />
+              Invite Participants
+            </button>
 
-            {[
-              {
-                label: 'Invite Participants',
-                page: 'invitations',
-                color: '#5B6FD4',
-                bg: '#EEF2FF',
-              },
-              {
-                label: 'Broadcast Announcement',
-                page: 'announcements',
-                color: '#3D9E8C',
-                bg: '#E6F4F1',
-              },
-              // {
-              //   label: 'Review Documents',
-              //   page: 'documents',
-              //   color: '#9B7ECB',
-              //   bg: '#F0EBFB',
-              // },
-              // {
-              //   label: 'Open Chat',
-              //   page: 'chat',
-              //   color: '#E8824A',
-              //   bg: '#FEF3ED',
-              // },
-            ].map((action) => (
-              <button
-                key={action.page}
-                onClick={() =>
-                  onNavigate(
-                    action.page
-                  )
-                }
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:opacity-80 transition-opacity text-sm font-medium"
-                style={{
-                  backgroundColor:
-                    action.bg,
-                  color:
-                    action.color,
-                }}
-              >
-
-                <span
-                  className="w-2 h-2 rounded-full"
-                  style={{
-                    background:
-                      action.color,
-                  }}
-                />
-
-                {action.label}
-
-              </button>
-            ))}
-
+            <button
+              onClick={() =>
+                onNavigate(
+                  "announcements"
+                )
+              }
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[#E6F4F1] text-[#3D9E8C] hover:opacity-80 transition-opacity text-sm font-medium"
+            >
+              <span className="w-2 h-2 rounded-full bg-[#3D9E8C]" />
+              Broadcast Announcement
+            </button>
           </div>
-
         </div>
-
       </div>
 
-      {/* ================================================= */}
-      {/* STATS */}
-      {/* ================================================= */}
-
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-
         {stats.map((stat) => {
-
           const total =
             stat.total || 0;
 
@@ -696,7 +590,6 @@ export default function AdminDashboard({
               key={stat.label}
               className={`${stat.bg} rounded-2xl p-5 border border-white/60 shadow-soft`}
             >
-
               <p className="text-xs font-medium text-[#9090A8] uppercase tracking-wider mb-2">
                 {stat.label}
               </p>
@@ -712,15 +605,13 @@ export default function AdminDashboard({
               </p>
 
               <p className="text-xs text-[#9090A8] mt-1">
-
-                {stat.total !== null
+                {stat.total !==
+                null
                   ? `of ${stat.total} total`
-                  : 'Current total'}
-
+                  : "Current total"}
               </p>
 
               <div className="mt-3 h-1 bg-white/50 rounded-full overflow-hidden">
-
                 <div
                   className="h-full rounded-full"
                   style={{
@@ -729,124 +620,14 @@ export default function AdminDashboard({
                       stat.color,
                   }}
                 />
-
               </div>
-
             </div>
           );
         })}
-
       </div>
-
-      {/* ================================================= */}
-      {/* RECENT PARTICIPANTS + ACTIVITY */}
-      {/* ================================================= */}
-
-      <div className="grid lg:grid-cols-3 gap-6">
-
-        {/* ================================================= */}
-        {/* RECENT PARTICIPANTS */}
-        {/* ================================================= */}
-
-        {/* <div className="lg:col-span-2 bg-white rounded-2xl border border-[#E8E8F0] shadow-soft overflow-hidden">
-
-          <div className="flex items-center justify-between px-6 py-4 border-b border-[#E8E8F0]">
-
-            <h3 className="font-semibold text-[#1A1A2E]">
-              Recent Participants
-            </h3>
-
-            <button
-              onClick={() =>
-                onNavigate(
-                  'participants'
-                )
-              }
-              className="text-xs text-[#5B6FD4] hover:underline font-medium"
-            >
-              View all
-            </button>
-
-          </div>
-
-         
-  
-
-        </div> */}
-
-        {/* ================================================= */}
-        {/* ACTIVITY FEED */}
-        {/* ================================================= */}
-
-        {/* <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft overflow-hidden">
-
-          <div className="px-5 py-4 border-b border-[#E8E8F0]">
-
-            <h3 className="font-semibold text-[#1A1A2E]">
-              Recent Activity
-            </h3>
-
-          </div>
-
-          <div className="px-5 py-3 space-y-3 overflow-y-auto max-h-80">
-
-            {activities.length === 0 ? (
-              <div className="py-8 text-center">
-
-                <p className="text-sm text-[#9090A8]">
-                  No recent activity.
-                </p>
-
-              </div>
-            ) : (
-              activities.map(
-                (activity, index) => (
-                  <div
-                    key={index}
-                    className="flex gap-3 items-start"
-                  >
-
-                    <span
-                      className="w-2 h-2 rounded-full mt-1.5 shrink-0"
-                      style={{
-                        background:
-                          activityColors[
-                            activity.type
-                          ],
-                      }}
-                    />
-
-                    <div>
-
-                      <p className="text-xs text-[#1A1A2E] leading-snug">
-                        {activity.text}
-                      </p>
-
-                      <p className="text-xs text-[#9090A8] mt-0.5">
-                        {activity.time}
-                      </p>
-
-                    </div>
-
-                  </div>
-                )
-              )
-            )}
-
-          </div>
-
-        </div> */}
-
-      </div>
-
-      {/* ================================================= */}
-      {/* ALL EVENTS */}
-      {/* ================================================= */}
 
       <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft overflow-hidden">
-
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#E8E8F0]">
-
           <h3 className="font-semibold text-[#1A1A2E]">
             All Events
           </h3>
@@ -854,19 +635,17 @@ export default function AdminDashboard({
           <button
             onClick={() =>
               onNavigate(
-                'event-builder'
+                "event-builder"
               )
             }
             className="text-xs font-semibold text-white gradient-primary px-3 py-1.5 rounded-lg hover:opacity-90 transition-opacity"
           >
             + New Event
           </button>
-
         </div>
 
         {events.length === 0 ? (
           <div className="p-10 text-center">
-
             <p className="text-sm text-[#9090A8] mb-4">
               No events have been created yet.
             </p>
@@ -874,24 +653,19 @@ export default function AdminDashboard({
             <button
               onClick={() =>
                 onNavigate(
-                  'event-builder'
+                  "event-builder"
                 )
               }
               className="gradient-primary text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:opacity-90"
             >
               Create Event
             </button>
-
           </div>
         ) : (
           <div className="overflow-x-auto">
-
             <table className="w-full text-sm">
-
               <thead>
-
                 <tr className="text-xs font-medium text-[#9090A8] uppercase tracking-wider border-b border-[#F0F0F8]">
-
                   <th className="text-left px-6 py-3">
                     Event
                   </th>
@@ -907,141 +681,70 @@ export default function AdminDashboard({
                   <th className="text-left px-6 py-3">
                     Venue
                   </th>
-
-
                 </tr>
-
               </thead>
 
               <tbody className="divide-y divide-[#F0F0F8]">
-
-                {events.map((event) => {
-
-                  return (
+                {events.map(
+                  (event) => (
                     <tr
-                      key={event._id}
+                      key={
+                        event._id
+                      }
                       onClick={() =>
-                        setSelectedEvent(
+                        onEventChange(
                           event
                         )
                       }
                       className={`hover:bg-[#FAFAF7] transition-colors cursor-pointer ${
                         selectedEvent?._id ===
                         event._id
-                          ? 'bg-[#FAFAF7]'
-                          : ''
+                          ? "bg-[#FAFAF7]"
+                          : ""
                       }`}
                     >
-
                       <td className="px-6 py-3.5 font-medium text-[#1A1A2E]">
-                        {event.name}
+                        {
+                          event.name
+                        }
                       </td>
 
                       <td className="px-6 py-3.5">
-
                         <span className="capitalize text-xs bg-[#EEF2FF] text-[#5B6FD4] px-2.5 py-1 rounded-full font-medium">
-                          {event.type}
+                          {
+                            event.type
+                          }
                         </span>
-
                       </td>
 
                       <td className="px-6 py-3.5 text-[#5A5A72]">
-
                         {event.startDate
                           ? new Date(
                               event.startDate
                             ).toLocaleDateString(
-                              'en-US',
+                              "en-US",
                               {
-                                month: 'short',
-                                day: 'numeric',
-                                year: 'numeric',
+                                month:
+                                  "short",
+                                day: "numeric",
+                                year: "numeric",
                               }
                             )
-                          : 'Not set'}
-
+                          : "Not set"}
                       </td>
 
                       <td className="px-6 py-3.5 text-[#5A5A72]">
                         {event.location ||
-                          'Not set'}
+                          "Not set"}
                       </td>
-
-                      <td className="px-6 py-3.5">
-
-                      
-
-                      </td>
-
                     </tr>
-                  );
-                })}
-
+                  )
+                )}
               </tbody>
-
             </table>
-
           </div>
         )}
-
       </div>
-
-      {/* ================================================= */}
-      {/* ANNOUNCEMENTS */}
-      {/* ================================================= */}
-
-      {/* <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft overflow-hidden">
-
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#E8E8F0]">
-
-          <h3 className="font-semibold text-[#1A1A2E]">
-            Recent Announcements
-          </h3>
-
-          <button
-            onClick={() =>
-              onNavigate(
-                'announcements'
-              )
-            }
-            className="text-xs text-[#5B6FD4] hover:underline font-medium"
-          >
-            View all
-          </button>
-
-        </div>
-
-        <div className="p-8 text-center">
-
-          <div className="text-3xl mb-3">
-            📢
-          </div>
-
-          <p className="text-sm font-medium text-[#1A1A2E]">
-            No announcements yet
-          </p>
-
-          <p className="text-xs text-[#9090A8] mt-1">
-            Create an announcement to see it here.
-          </p>
-
-            <button
-              onClick={() =>
-                onNavigate(
-                  'announcements'
-                )
-              }
-              className="mt-4 gradient-primary text-white px-4 py-2 rounded-xl text-xs font-semibold hover:opacity-90"
-            >
-              Create Announcement
-            </button>
-
-        </div>
-
-      </div> */}
-
     </div>
   );
 }
-
-
