@@ -16,6 +16,7 @@ import Invitations from "./pages/admin/Invitiations";
 import Announcements from "./pages/admin/Announcements";
 import Documents from "./pages/admin/Documents";
 import Chat from "./pages/admin/Chat";
+import EventBuilder from "./pages/admin/EventBuilder";
 
 import ParticipantDashboard from "./pages/participant/Dashboard";
 
@@ -24,6 +25,7 @@ type View =
   | "login"
   | "participant-login"
   | "admin-dashboard"
+  | "event-builder"
   | "participants"
   | "participant-profile"
   | "invitations"
@@ -46,6 +48,7 @@ const validViews: View[] = [
   "login",
   "participant-login",
   "admin-dashboard",
+  "event-builder",
   "participants",
   "participant-profile",
   "invitations",
@@ -57,6 +60,7 @@ const validViews: View[] = [
 
 const adminViews: View[] = [
   "admin-dashboard",
+  "event-builder",
   "participants",
   "participant-profile",
   "invitations",
@@ -318,6 +322,11 @@ export default function App() {
       return;
     }
 
+    if (page === "event-builder") {
+      setView("event-builder");
+      return;
+    }
+
     if (
       page ===
         "participant-profile" &&
@@ -437,6 +446,15 @@ export default function App() {
           }
           onEventChange={
             setSelectedEvent
+          }
+        />
+      )}
+
+      {view ===
+        "event-builder" && (
+        <EventBuilder
+          onNavigate={
+            adminNavigate
           }
         />
       )}
