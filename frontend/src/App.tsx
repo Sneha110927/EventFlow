@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
@@ -16,10 +16,6 @@ import Chat from "./pages/admin/Chat";
 
 import ParticipantDashboard from "./pages/participant/Dashboard";
 
-// ============================================================
-// VIEW TYPES
-// ============================================================
-
 type View =
   | "landing"
   | "login"
@@ -33,18 +29,96 @@ type View =
   | "chat"
   | "participant-dashboard";
 
+const VIEW_STORAGE_KEY = "eventflow_current_view";
+
+const PARTICIPANT_ID_STORAGE_KEY =
+  "eventflow_selected_participant_id";
+
+const validViews: View[] = [
+  "landing",
+  "login",
+  "participant-login",
+  "admin-dashboard",
+  "participants",
+  "participant-profile",
+  "invitations",
+  "announcements",
+  "documents",
+  "chat",
+  "participant-dashboard",
+];
+
+const adminViews: View[] = [
+  "admin-dashboard",
+  "participants",
+  "participant-profile",
+  "invitations",
+  "announcements",
+  "documents",
+  "chat",
+];
+
+const getInitialView = (): View => {
+  const token = localStorage.getItem("token");
+  const userString = localStorage.getItem("user");
+
+  const savedView = sessionStorage.getItem(
+    VIEW_STORAGE_KEY
+  ) as View | null;
+
+  if (!token || !userString) {
+    return "landing";
+  }
+
+  try {
+    const user = JSON.parse(userString);
+
+    if (
+      savedView &&
+      validViews.includes(savedView)
+    ) {
+      if (
+        user.role === "admin" &&
+        savedView === "participant-dashboard"
+      ) {
+        return "admin-dashboard";
+      }
+
+      if (
+        user.role === "participant" &&
+        adminViews.includes(savedView)
+      ) {
+        return "participant-dashboard";
+      }
+
+      return savedView;
+    }
+
+    return "landing";
+  } catch (error) {
+    console.error(
+      "Unable to restore EventFlow session:",
+      error
+    );
+
+    return "landing";
+  }
+};
+
 export default function App() {
   const [view, setView] =
-    useState<View>("landing");
+    useState<View>(getInitialView);
 
   const [
     selectedParticipantId,
     setSelectedParticipantId,
-  ] = useState<string | null>(null);
-
-  // ==========================================================
-  // URL PARAMETERS
-  // ==========================================================
+  ] = useState<string | null>(() => {
+    return (
+      sessionStorage.getItem(
+        PARTICIPANT_ID_STORAGE_KEY
+      ) || null
+    );
+  });
 
   const searchParams =
     new URLSearchParams(
@@ -54,20 +128,34 @@ export default function App() {
   const invitationToken =
     searchParams.get("token") || "";
 
-  // ==========================================================
-  // INVITATION LINK
-  // ==========================================================
-  //
-  // Example:
-  //
-  // http://localhost:5173/accept-invitation?token=ABC123
-  //
-  // If an invitation token exists, show the invitation page.
-  //
-  // ==========================================================
+  useEffect(() => {
+    if (view === "landing") {
+      sessionStorage.removeItem(
+        VIEW_STORAGE_KEY
+      );
+      return;
+    }
+
+    sessionStorage.setItem(
+      VIEW_STORAGE_KEY,
+      view
+    );
+  }, [view]);
+
+  useEffect(() => {
+    if (selectedParticipantId) {
+      sessionStorage.setItem(
+        PARTICIPANT_ID_STORAGE_KEY,
+        selectedParticipantId
+      );
+    } else {
+      sessionStorage.removeItem(
+        PARTICIPANT_ID_STORAGE_KEY
+      );
+    }
+  }, [selectedParticipantId]);
 
   if (invitationToken) {
-    // Store invitation token temporarily
     sessionStorage.setItem(
       "eventflow_invitation_token",
       invitationToken
@@ -77,29 +165,22 @@ export default function App() {
       <AcceptInvitation
         token={invitationToken}
         onAccepted={() => {
-          // Keep token available for ParticipantLogin
           sessionStorage.setItem(
             "eventflow_invitation_token",
             invitationToken
           );
 
-          // Remove token from browser URL
           window.history.replaceState(
             {},
             "",
             "/"
           );
 
-          // Open participant login
           setView("participant-login");
         }}
       />
     );
   }
-
-  // ==========================================================
-  // LOGIN NAVIGATION
-  // ==========================================================
 
   const goToLogin = (
     role: "admin" | "participant"
@@ -109,26 +190,8 @@ export default function App() {
       return;
     }
 
-    // ========================================================
-    // NORMAL PARTICIPANT LOGIN
-    // ========================================================
-    //
-    // IMPORTANT:
-    //
-    // A participant does NOT need an invitation token
-    // to log in normally.
-    //
-    // They simply enter their registered email and
-    // receive an OTP.
-    //
-    // ========================================================
-
     setView("participant-login");
   };
-
-  // ==========================================================
-  // SUCCESSFUL LOGIN
-  // ==========================================================
 
   const handleLogin = (
     role: "admin" | "participant"
@@ -141,56 +204,44 @@ export default function App() {
     setView("participant-dashboard");
   };
 
-  // ==========================================================
-  // LOGOUT
-  // ==========================================================
-
   const handleLogout = () => {
     setSelectedParticipantId(null);
 
-    // Remove authentication
     localStorage.removeItem("token");
     localStorage.removeItem("user");
 
-    // Remove selected event
     localStorage.removeItem(
       "eventflow_selected_event"
     );
 
-    // Remove participant event
     localStorage.removeItem(
       "eventflow_participant_event"
     );
 
-    // Remove invitation token
+    sessionStorage.removeItem(
+      VIEW_STORAGE_KEY
+    );
+
+    sessionStorage.removeItem(
+      PARTICIPANT_ID_STORAGE_KEY
+    );
+
     sessionStorage.removeItem(
       "eventflow_invitation_token"
     );
 
-    // Return to landing page
     setView("landing");
   };
-
-  // ==========================================================
-  // ADMIN NAVIGATION
-  // ==========================================================
 
   const adminNavigate = (
     page: string,
     id?: string
   ) => {
-    // --------------------------------------------------------
-    // Dashboard
-    // --------------------------------------------------------
-
     if (page === "dashboard") {
+      setSelectedParticipantId(null);
       setView("admin-dashboard");
       return;
     }
-
-    // --------------------------------------------------------
-    // Participant Profile
-    // --------------------------------------------------------
 
     if (
       page === "participant-profile" &&
@@ -200,10 +251,6 @@ export default function App() {
       setView("participant-profile");
       return;
     }
-
-    // --------------------------------------------------------
-    // Other Admin Pages
-    // --------------------------------------------------------
 
     if (
       page === "participants" ||
@@ -225,10 +272,6 @@ export default function App() {
     }
   };
 
-  // ==========================================================
-  // LANDING PAGE
-  // ==========================================================
-
   if (view === "landing") {
     return (
       <Landing
@@ -236,10 +279,6 @@ export default function App() {
       />
     );
   }
-
-  // ==========================================================
-  // ADMIN LOGIN
-  // ==========================================================
 
   if (view === "login") {
     return (
@@ -251,39 +290,6 @@ export default function App() {
       />
     );
   }
-
-  // ==========================================================
-  // PARTICIPANT LOGIN
-  // ==========================================================
-  //
-  // There are TWO possible ways to reach this page:
-  //
-  // 1. Normal login:
-  //
-  //    Landing
-  //       ↓
-  //    Login
-  //       ↓
-  //    Participant
-  //       ↓
-  //    ParticipantLogin
-  //
-  //    No invitation token.
-  //
-  //
-  // 2. Invitation login:
-  //
-  //    Invitation Email
-  //       ↓
-  //    Invitation Link
-  //       ↓
-  //    AcceptInvitation
-  //       ↓
-  //    ParticipantLogin
-  //
-  //    Invitation token is available.
-  //
-  // ==========================================================
 
   if (view === "participant-login") {
     const storedInvitationToken =
@@ -306,10 +312,6 @@ export default function App() {
     );
   }
 
-  // ==========================================================
-  // PARTICIPANT DASHBOARD
-  // ==========================================================
-
   if (
     view === "participant-dashboard"
   ) {
@@ -320,18 +322,10 @@ export default function App() {
     );
   }
 
-  // ==========================================================
-  // ADMIN PAGE ID
-  // ==========================================================
-
   const adminPageId =
     view === "admin-dashboard"
       ? "dashboard"
       : view;
-
-  // ==========================================================
-  // ADMIN LAYOUT
-  // ==========================================================
 
   return (
     <AdminLayout
@@ -340,27 +334,15 @@ export default function App() {
       onLogout={handleLogout}
       eventName="Tech Summit 2026"
     >
-      {/* ====================================================
-          ADMIN DASHBOARD
-          ==================================================== */}
-
       {view === "admin-dashboard" && (
         <AdminDashboard
           onNavigate={adminNavigate}
         />
       )}
 
-      {/* ====================================================
-          PARTICIPANTS
-          ==================================================== */}
-
       {view === "participants" && (
         <Participants />
       )}
-
-      {/* ====================================================
-          PARTICIPANT PROFILE
-          ==================================================== */}
 
       {view === "participant-profile" &&
         selectedParticipantId && (
@@ -374,33 +356,17 @@ export default function App() {
           />
         )}
 
-      {/* ====================================================
-          INVITATIONS
-          ==================================================== */}
-
       {view === "invitations" && (
         <Invitations />
       )}
-
-      {/* ====================================================
-          ANNOUNCEMENTS
-          ==================================================== */}
 
       {view === "announcements" && (
         <Announcements />
       )}
 
-      {/* ====================================================
-          DOCUMENTS
-          ==================================================== */}
-
       {view === "documents" && (
         <Documents />
       )}
-
-      {/* ====================================================
-          CHAT
-          ==================================================== */}
 
       {view === "chat" && (
         <Chat />
