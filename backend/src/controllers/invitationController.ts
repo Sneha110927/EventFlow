@@ -71,15 +71,11 @@ export const createInvitation = async (
       expiresAt,
     });
 
-    const invitationLink =
-      `${process.env.FRONTEND_URL || "http://localhost:5173"}/accept-invitation?token=${token}`;
+    const frontendUrl =
+      process.env.FRONTEND_URL || "http://localhost:5173";
 
-    console.log("📨 Invitation created:", {
-      id: invitation._id,
-      email: invitation.email,
-      name: invitation.name,
-      event: event.name,
-    });
+    const invitationLink =
+      `${frontendUrl}/accept-invitation?token=${token}`;
 
     await sendInvitationEmail({
       to: invitation.email,
@@ -180,7 +176,6 @@ export const resendInvitation = async (
 
     if (invitation.expiresAt < new Date()) {
       invitation.status = "expired";
-
       await invitation.save();
 
       return res.status(410).json({
@@ -203,13 +198,6 @@ export const resendInvitation = async (
 
     const invitationLink =
       `${frontendUrl}/accept-invitation?token=${invitation.token}`;
-
-    console.log("📨 Resending invitation:", {
-      id: invitation._id,
-      email: invitation.email,
-      name: invitation.name,
-      event: event.name,
-    });
 
     await sendInvitationEmail({
       to: invitation.email,
@@ -256,7 +244,7 @@ export const getInvitationByToken = async (
       token,
     }).populate(
       "event",
-      "name type description startDate endDate location"
+      "name type description startDate endDate location venue"
     );
 
     if (!invitation) {
@@ -279,15 +267,23 @@ export const getInvitationByToken = async (
       });
     }
 
+    const invitationData = {
+      id: invitation._id,
+      _id: invitation._id,
+      name: invitation.name,
+      email: invitation.email,
+      status: invitation.status,
+      expiresAt: invitation.expiresAt,
+      event: invitation.event,
+    };
+
     return res.status(200).json({
-      invitation: {
-        id: invitation._id,
-        name: invitation.name,
-        email: invitation.email,
-        status: invitation.status,
-        expiresAt: invitation.expiresAt,
-        event: invitation.event,
-      },
+      invitation: invitationData,
+      name: invitation.name,
+      email: invitation.email,
+      status: invitation.status,
+      expiresAt: invitation.expiresAt,
+      event: invitation.event,
     });
   } catch (error) {
     console.error("Get invitation error:", error);
@@ -337,14 +333,20 @@ export const sendInvitationOTP = async (
       });
     }
 
-    const email = invitation.email.trim().toLowerCase();
+    const email = invitation.email?.trim().toLowerCase();
 
-    if (!email) {
+    if (!email || !email.includes("@")) {
       return res.status(400).json({
         message:
-          "No email address is associated with this invitation.",
+          "This invitation does not contain a valid email address.",
       });
     }
+
+    await OTP.deleteMany({
+      email,
+      purpose: "participant-login",
+      invitationToken: token,
+    });
 
     await generateAndStoreEmailOTP(
       email,
@@ -419,7 +421,14 @@ export const verifyInvitationOTP = async (
       });
     }
 
-    const email = invitation.email.trim().toLowerCase();
+    const email = invitation.email?.trim().toLowerCase();
+
+    if (!email || !email.includes("@")) {
+      return res.status(400).json({
+        message:
+          "This invitation does not contain a valid email address.",
+      });
+    }
 
     const otpRecord = await OTP.findOne({
       email,
@@ -465,22 +474,17 @@ export const verifyInvitationOTP = async (
 
     if (!isValidOTP) {
       otpRecord.attempts += 1;
-
       await otpRecord.save();
 
       return res.status(400).json({
         message: "Invalid OTP",
-        attemptsRemaining: 5 - otpRecord.attempts,
+        attemptsRemaining:
+          5 - otpRecord.attempts,
       });
     }
 
-    await OTP.deleteOne({
-      _id: otpRecord._id,
-    });
-
     let user = await User.findOne({
       email,
-      role: "participant",
     });
 
     if (!user) {
@@ -488,6 +492,11 @@ export const verifyInvitationOTP = async (
         name: invitation.name,
         email,
         role: "participant",
+      });
+    } else if (user.role !== "participant") {
+      return res.status(409).json({
+        message:
+          "An account with this email already exists with a different role. Please contact the event administrator.",
       });
     } else {
       if (
@@ -514,12 +523,24 @@ export const verifyInvitationOTP = async (
           registrationCompleted: false,
           joinedAt: new Date(),
         });
+    } else if (
+      eventParticipant.status !== "accepted"
+    ) {
+      eventParticipant.status = "accepted";
+      eventParticipant.joinedAt =
+        eventParticipant.joinedAt || new Date();
+
+      await eventParticipant.save();
     }
 
     if (invitation.status !== "accepted") {
       invitation.status = "accepted";
       await invitation.save();
     }
+
+    await OTP.deleteOne({
+      _id: otpRecord._id,
+    });
 
     const jwtSecret = process.env.JWT_SECRET;
 
@@ -540,6 +561,10 @@ export const verifyInvitationOTP = async (
       }
     );
 
+    const event = await Event.findById(
+      invitation.event
+    );
+
     return res.status(200).json({
       message:
         "OTP verified successfully. Login successful.",
@@ -550,6 +575,7 @@ export const verifyInvitationOTP = async (
         email: user.email,
         role: user.role,
       },
+      event,
     });
   } catch (error) {
     console.error(
@@ -592,9 +618,8 @@ export const deleteInvitation = async (
       });
     }
 
-    const invitation = await Invitation.findById(
-      invitationId
-    );
+    const invitation =
+      await Invitation.findById(invitationId);
 
     if (!invitation) {
       return res.status(404).json({
@@ -610,44 +635,26 @@ export const deleteInvitation = async (
     });
 
     if (participant) {
-      const result =
-        await EventParticipant.deleteOne({
-          event: eventId,
-          user: participant._id,
-        });
-
-      console.log(
-        "EventParticipant removed:",
-        result.deletedCount
-      );
+      await EventParticipant.deleteOne({
+        event: eventId,
+        user: participant._id,
+      });
     }
 
-    const otpResult = await OTP.deleteMany({
+    await OTP.deleteMany({
       invitationToken: invitation.token,
     });
-
-    console.log(
-      "OTP records removed:",
-      otpResult.deletedCount
-    );
 
     const invitationResult =
       await Invitation.deleteOne({
         _id: invitation._id,
       });
 
-    console.log(
-      "Invitation removed:",
-      invitationResult.deletedCount
-    );
-
     return res.status(200).json({
       message: "Participant removed successfully",
       invitationDeleted:
         invitationResult.deletedCount,
-      participantRemoved: participant
-        ? true
-        : false,
+      participantRemoved: Boolean(participant),
     });
   } catch (error) {
     console.error(
