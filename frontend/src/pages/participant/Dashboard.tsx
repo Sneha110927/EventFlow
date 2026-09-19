@@ -5,12 +5,11 @@ import {
   useState,
   type ChangeEvent,
 } from 'react';
-
 import {
   io,
   type Socket,
 } from 'socket.io-client';
-
+import VirtualMeetingCard from "../../components/VirtualMeetingCard";
 interface ParticipantDashboardProps {
   onLogout: () => void;
 }
@@ -27,19 +26,22 @@ interface EventData {
   name: string;
   type?: string;
   description?: string;
+  venue?: string;
+  location?: string;
   startDate?: string;
   endDate?: string;
-  location?: string;
+  meetingLink?: string;
 
   modules?: {
-    participants?: boolean;
-    registration?: boolean;
-    schedule?: boolean;
-    documents?: boolean;
-    announcements?: boolean;
-    chat?: boolean;
-    accommodation?: boolean;
-    travel?: boolean;
+    participants: boolean;
+    registration: boolean;
+    schedule: boolean;
+    documents: boolean;
+    announcements: boolean;
+    chat: boolean;
+    accommodation: boolean;
+    travel: boolean;
+    virtualMeeting: boolean;
   };
 }
 
@@ -202,7 +204,10 @@ interface SocketSendResult {
 }
 
 const API_BASE_URL =
-  'https://event-flow-nine.vercel.app/api';
+  window.location.hostname === 'localhost' ||
+  window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:5000/api'
+    : 'https://event-flow-nine.vercel.app';
 
 const SOCKET_URL =
   'https://event-flow-nine.vercel.app';
@@ -2345,7 +2350,7 @@ export default function ParticipantDashboard({
               </div>
 
               <span className="text-sm font-medium text-[#1A1A2E] hidden sm:block">
-                {participant?.name ||
+                {participant?.name ||   
                   'Participant'}
               </span>
 
@@ -2370,63 +2375,60 @@ export default function ParticipantDashboard({
             HERO
         ==================================================== */}
 
-        <div className="gradient-primary rounded-2xl p-6 text-white shadow-card">
+      <div className="gradient-primary rounded-2xl p-6 text-white shadow-card">
+  <p className="text-white/70 text-sm">
+    Welcome back,
+  </p>
 
-          <p className="text-white/70 text-sm">
-            Welcome back,
-          </p>
+  <h1 className="font-display text-3xl mt-1 mb-4">
+    {participant?.name}
+  </h1>
 
-          <h1 className="font-display text-3xl mt-1 mb-4">
-            {participant?.name}
-          </h1>
+  <div className="flex flex-wrap gap-6">
 
-          <div className="flex flex-wrap gap-6">
+    <div>
+      <p className="text-white/60 text-xs uppercase tracking-wider">
+        Event
+      </p>
 
-            <div>
-              <p className="text-white/60 text-xs uppercase tracking-wider">
-                Event
-              </p>
+      <p className="font-semibold">
+        {event.name}
+      </p>
+    </div>
 
-              <p className="font-semibold">
-                {event.name}
-              </p>
-            </div>
+    <div>
+      <p className="text-white/60 text-xs uppercase tracking-wider">
+        Date
+      </p>
 
-            <div>
-              <p className="text-white/60 text-xs uppercase tracking-wider">
-                Date
-              </p>
+      <p className="font-semibold">
+        {formatDateRange()}
+      </p>
+    </div>
 
-              <p className="font-semibold">
-                {formatDateRange()}
-              </p>
-            </div>
+    <div>
+      <p className="text-white/60 text-xs uppercase tracking-wider">
+        Venue
+      </p>
 
-            <div>
-              <p className="text-white/60 text-xs uppercase tracking-wider">
-                Venue
-              </p>
+      <p className="font-semibold">
+        {event.location || 'Location not specified'}
+      </p>
+    </div>
 
-              <p className="font-semibold">
-                {event.location ||
-                  'Location not specified'}
-              </p>
-            </div>
+    <div>
+      <p className="text-white/60 text-xs uppercase tracking-wider">
+        Status
+      </p>
 
-            <div>
-              <p className="text-white/60 text-xs uppercase tracking-wider">
-                Status
-              </p>
+      <span className="text-xs bg-white/20 text-white px-2.5 py-1 rounded-full font-semibold capitalize">
+        {registrationStatus}
+      </span>
+    </div>
 
-              <span className="text-xs bg-white/20 text-white px-2.5 py-1 rounded-full font-semibold capitalize">
-                {registrationStatus}
-              </span>
-            </div>
-
-          </div>
-
-        </div>
-
+  </div>
+</div>
+<VirtualMeetingCard meetingLink={event.meetingLink} />
         {/* ===================================================
             TABS
         ==================================================== */}

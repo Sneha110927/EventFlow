@@ -7,6 +7,7 @@ export interface IEvent extends Document {
   startDate?: Date;
   endDate?: Date;
   location?: string;
+  meetingLink?: string;
 
   modules: {
     participants: boolean;
@@ -17,6 +18,7 @@ export interface IEvent extends Document {
     chat: boolean;
     accommodation: boolean;
     travel: boolean;
+    virtualMeeting: boolean;
   };
 
   createdBy: mongoose.Types.ObjectId;
@@ -56,6 +58,12 @@ const eventSchema = new Schema<IEvent>(
       trim: true,
     },
 
+    meetingLink: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
     modules: {
       participants: {
         type: Boolean,
@@ -93,6 +101,11 @@ const eventSchema = new Schema<IEvent>(
       },
 
       travel: {
+        type: Boolean,
+        default: false,
+      },
+
+      virtualMeeting: {
         type: Boolean,
         default: false,
       },

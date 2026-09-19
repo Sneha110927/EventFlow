@@ -14,10 +14,23 @@ interface InvitationData {
     _id: string;
     name: string;
     type?: string;
+    description?: string;
     venue?: string;
     location?: string;
     startDate?: string;
     endDate?: string;
+    meetingLink?: string;
+    modules?: {
+      participants?: boolean;
+      registration?: boolean;
+      schedule?: boolean;
+      documents?: boolean;
+      announcements?: boolean;
+      chat?: boolean;
+      accommodation?: boolean;
+      travel?: boolean;
+      virtualMeeting?: boolean;
+    };
   };
 }
 
@@ -374,12 +387,14 @@ export default function AcceptInvitation({
       <div className="relative min-h-screen overflow-hidden bg-[#F8F8FC] flex items-center justify-center px-5">
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-[15%] left-[15%] w-40 h-40 bg-[#7182DF]/15 rounded-full blur-3xl animate-pulse" />
+
           <div
             className="absolute bottom-[15%] right-[15%] w-48 h-48 bg-[#9B8AFB]/15 rounded-full blur-3xl animate-pulse"
             style={{
               animationDelay: "500ms",
             }}
           />
+
           <div
             className="absolute top-[35%] right-[25%] w-32 h-32 bg-[#7CCFC1]/15 rounded-full blur-3xl animate-pulse"
             style={{
@@ -392,6 +407,7 @@ export default function AcceptInvitation({
           <div className="bg-white rounded-[32px] border border-[#E8E8F0] shadow-2xl p-8 text-center animate-[celebrateCard_700ms_ease-out]">
             <div className="relative mx-auto mb-6 w-20 h-20">
               <div className="absolute inset-0 rounded-full bg-[#7182DF]/10 animate-ping" />
+
               <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-[#7182DF] to-[#8B7FE8] flex items-center justify-center shadow-xl">
                 <span className="text-4xl animate-[celebrateIcon_700ms_ease-out]">
                   🎉
@@ -535,6 +551,19 @@ export default function AcceptInvitation({
             .
           </p>
 
+          {invitation?.event?.modules
+            ?.virtualMeeting &&
+            invitation.event.meetingLink && (
+              <a
+                href={invitation.event.meetingLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 mt-5 px-5 py-3 rounded-xl bg-[#7182DF] text-white text-sm font-semibold hover:bg-[#6072D5] transition"
+              >
+                Join Google Meet
+              </a>
+            )}
+
           <p className="text-xs text-[#A0A0B0] mt-5">
             Taking you to your participant dashboard...
           </p>
@@ -676,6 +705,45 @@ export default function AcceptInvitation({
                       </div>
                     </div>
                   )}
+
+                  {invitation.event.modules
+                    ?.virtualMeeting &&
+                    invitation.event.meetingLink && (
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center flex-shrink-0">
+                          <svg
+                            className="w-4 h-4 text-[#7182DF]"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 6h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2z"
+                            />
+                          </svg>
+                        </div>
+
+                        <div className="min-w-0">
+                          <p className="text-[11px] text-[#9090A8]">
+                            Virtual Meeting
+                          </p>
+
+                          <a
+                            href={
+                              invitation.event.meetingLink
+                            }
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs font-semibold text-[#7182DF] hover:text-[#6072D5] mt-0.5 break-all"
+                          >
+                            Join Google Meet
+                          </a>
+                        </div>
+                      </div>
+                    )}
                 </div>
               </div>
             )}
@@ -757,7 +825,7 @@ export default function AcceptInvitation({
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2}
-                        d="M3 8l9 6 9-6M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                        d="M3 8l9 6 9-6M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h14"
                       />
                     </svg>
                   </div>

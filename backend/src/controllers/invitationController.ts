@@ -115,7 +115,10 @@ export const getInvitations = async (
     }
 
     const invitations = await Invitation.find()
-      .populate("event", "name type")
+      .populate(
+        "event",
+        "name type description startDate endDate location venue meetingLink modules"
+      )
       .populate("invitedBy", "name email")
       .sort({
         createdAt: -1,
@@ -244,7 +247,7 @@ export const getInvitationByToken = async (
       token,
     }).populate(
       "event",
-      "name type description startDate endDate location venue"
+      "name type description startDate endDate location venue meetingLink modules"
     );
 
     if (!invitation) {

@@ -10,7 +10,6 @@ export const getAllEventParticipants = async (
   res: Response
 ) => {
   try {
-
     if (!req.user) {
       return res.status(401).json({
         message: "Authentication required",
@@ -30,12 +29,11 @@ export const getAllEventParticipants = async (
       )
       .populate(
         "event",
-        "name type"
+        "name type description startDate endDate location meetingLink modules"
       )
       .sort({
         createdAt: -1,
       });
-
 
     return res.status(200).json({
       participants,
@@ -57,29 +55,17 @@ export const getEventParticipants = async (
   res: Response
 ) => {
   try {
-    // -------------------------------------------------------
-    // Check authentication
-    // -------------------------------------------------------
-
     if (!req.user) {
       return res.status(401).json({
         message: "Authentication required",
       });
     }
 
-    // -------------------------------------------------------
-    // Only admin can view event participants
-    // -------------------------------------------------------
-
     if (req.user.role !== "admin") {
       return res.status(403).json({
         message: "Only admins can view event participants",
       });
     }
-
-    // -------------------------------------------------------
-    // Get event ID
-    // -------------------------------------------------------
 
     const { eventId } = req.params;
 
@@ -89,10 +75,6 @@ export const getEventParticipants = async (
       });
     }
 
-    // -------------------------------------------------------
-    // Check whether event exists
-    // -------------------------------------------------------
-
     const event = await Event.findById(eventId);
 
     if (!event) {
@@ -100,10 +82,6 @@ export const getEventParticipants = async (
         message: "Event not found",
       });
     }
-
-    // -------------------------------------------------------
-    // Get participants
-    // -------------------------------------------------------
 
     const participants = await EventParticipant.find({
       event: eventId,
@@ -116,15 +94,17 @@ export const getEventParticipants = async (
         createdAt: -1,
       });
 
-    // -------------------------------------------------------
-    // Return participants
-    // -------------------------------------------------------
-
     return res.status(200).json({
       event: {
         id: event._id,
         name: event.name,
         type: event.type,
+        description: event.description,
+        startDate: event.startDate,
+        endDate: event.endDate,
+        location: event.location,
+        meetingLink: event.meetingLink,
+        modules: event.modules,
       },
       participants,
     });
@@ -145,38 +125,57 @@ export const getMyEvents = async (
   res: Response
 ) => {
   try {
-    // -------------------------------------------------------
-    // Check authentication
-    // -------------------------------------------------------
-
     if (!req.user) {
       return res.status(401).json({
         message: "Authentication required",
       });
     }
+console.log("🔥 NEW getMyEvents IS RUNNING");
+    const eventParticipants = await EventParticipant.find({
+      user: req.user.userId,
+    }).sort({
+      createdAt: -1,
+    });
 
-    // -------------------------------------------------------
-    // Get event memberships for logged-in user
-    // -------------------------------------------------------
+    const events = await Promise.all(
+      eventParticipants.map(async (participant) => {
+        const event = await Event.findById(
+          participant.event
+        );
 
-    const eventParticipants =
-      await EventParticipant.find({
-        user: req.user.userId,
+        return {
+          ...participant.toObject(),
+          event: event
+            ? {
+                _id: event._id,
+                name: event.name,
+                type: event.type,
+                description: event.description,
+                startDate: event.startDate,
+                endDate: event.endDate,
+                location: event.location,
+                meetingLink: event.meetingLink,
+                modules: event.modules,
+              }
+            : null,
+        };
       })
-        .populate(
-          "event",
-          "name type description startDate endDate location modules"
-        )
-        .sort({
-          createdAt: -1,
-        });
+    );
 
-    // -------------------------------------------------------
-    // Return events
-    // -------------------------------------------------------
+    console.log(
+      "========== PARTICIPANT EVENTS =========="
+    );
+
+    console.log(
+      JSON.stringify(events, null, 2)
+    );
+
+    console.log(
+      "=========================================" 
+    );
 
     return res.status(200).json({
-      events: eventParticipants,
+      events,
     });
   } catch (error) {
     console.error(
