@@ -124,14 +124,7 @@ const formatTime = (
   );
 };
 
-// =========================================================
-// COMPONENT
-// =========================================================
-
 export default function Chat() {
-  // =======================================================
-  // PARTICIPANTS
-  // =======================================================
 
   const [
     participants,
@@ -147,9 +140,6 @@ export default function Chat() {
     string | null
   >(null);
 
-  // =======================================================
-  // CONVERSATION
-  // =======================================================
 
   const [
     conversation,
@@ -157,10 +147,6 @@ export default function Chat() {
   ] = useState<
     Conversation | null
   >(null);
-
-  // =======================================================
-  // MESSAGES
-  // =======================================================
 
   const [
     messages,
@@ -174,9 +160,6 @@ export default function Chat() {
     setNewMsg,
   ] = useState("");
 
-  // =======================================================
-  // LOADING
-  // =======================================================
 
   const [
     loadingParticipants,
@@ -193,18 +176,11 @@ export default function Chat() {
     setSending,
   ] = useState(false);
 
-  // =======================================================
-  // SEARCH
-  // =======================================================
-
+  
   const [
     search,
     setSearch,
   ] = useState("");
-
-  // =======================================================
-  // SOCKET
-  // =======================================================
 
   const [
     socket,
@@ -213,26 +189,11 @@ export default function Chat() {
     Socket | null
   >(null);
 
-  // =======================================================
-  // REFS
-  // =======================================================
-
-  /*
-   * Stores the currently open conversation.
-   *
-   * This is important because Socket.IO listeners are
-   * created only once. Using a ref prevents the listener
-   * from using an old/stale conversation value.
-   */
-
   const currentConversationIdRef =
     useRef<string | null>(
       null
     );
 
-  // =======================================================
-  // SELECTED PARTICIPANT
-  // =======================================================
 
   const selectedParticipant =
     useMemo(() => {
@@ -246,10 +207,6 @@ export default function Chat() {
       participants,
       selectedParticipantId,
     ]);
-
-  // =======================================================
-  // LOAD PARTICIPANTS
-  // =======================================================
 
   const loadParticipants =
     useCallback(
@@ -313,13 +270,6 @@ export default function Chat() {
             fetchedParticipants
           );
 
-          /*
-           * Keep the current participant selected
-           * if they still exist in the search results.
-           *
-           * Otherwise select the first result.
-           */
-
           setSelectedParticipantId(
             (currentSelectedId) => {
               const stillExists =
@@ -364,26 +314,6 @@ export default function Chat() {
       []
     );
 
-  // =======================================================
-  // LOAD PARTICIPANTS + SEARCH
-  // =======================================================
-
-  /*
-   * This single effect handles both:
-   *
-   * 1. Initial loading
-   * 2. Searching
-   *
-   * There is NO separate:
-   *
-   * useEffect(() => {
-   *   loadParticipants();
-   * }, []);
-   *
-   * Therefore the React cascading-render warning
-   * is avoided.
-   */
-
   useEffect(() => {
     const timer =
       setTimeout(() => {
@@ -400,9 +330,6 @@ export default function Chat() {
     loadParticipants,
   ]);
 
-  // =======================================================
-  // CONNECT SOCKET.IO
-  // =======================================================
 
   useEffect(() => {
     const token =
@@ -415,12 +342,6 @@ export default function Chat() {
 
       return;
     }
-
-    /*
-     * ONE socket connection for the entire component.
-     *
-     * Do NOT add conversation to this dependency array.
-     */
 
     const newSocket =
       io(
@@ -437,10 +358,6 @@ export default function Chat() {
         }
       );
 
-    // =====================================================
-    // CONNECT
-    // =====================================================
-
     newSocket.on(
       "connect",
       () => {
@@ -449,10 +366,6 @@ export default function Chat() {
           newSocket.id
         );
 
-        /*
-         * If a conversation was already selected
-         * before the socket connected, join it now.
-         */
 
         const conversationId =
           currentConversationIdRef.current;
@@ -469,11 +382,6 @@ export default function Chat() {
         }
       }
     );
-
-    // =====================================================
-    // CONNECT ERROR
-    // =====================================================
-
     newSocket.on(
       "connect_error",
       (error) => {
@@ -484,10 +392,6 @@ export default function Chat() {
       }
     );
 
-    // =====================================================
-    // DISCONNECT
-    // =====================================================
-
     newSocket.on(
       "disconnect",
       (reason) => {
@@ -497,11 +401,6 @@ export default function Chat() {
         );
       }
     );
-
-    // =====================================================
-    // NEW MESSAGE
-    // =====================================================
-
     newSocket.on(
       "new_message",
       (message: Message) => {
@@ -552,10 +451,6 @@ export default function Chat() {
           );
         }
 
-        // -------------------------------------------------
-        // UPDATE SIDEBAR
-        // -------------------------------------------------
-
         setParticipants(
           (previous) =>
             previous.map(
@@ -588,9 +483,6 @@ export default function Chat() {
       }
     );
 
-    // =====================================================
-    // CONVERSATION UPDATED
-    // =====================================================
 
     newSocket.on(
       "conversation_updated",
@@ -661,9 +553,7 @@ export default function Chat() {
       }
     );
 
-    // =====================================================
-    // CHAT ERROR
-    // =====================================================
+  
 
     newSocket.on(
       "chat_error",
@@ -677,17 +567,9 @@ export default function Chat() {
       }
     );
 
-    // =====================================================
-    // SAVE SOCKET
-    // =====================================================
-
     setSocket(
       newSocket
     );
-
-    // =====================================================
-    // CLEANUP
-    // =====================================================
 
     return () => {
       console.log(
@@ -702,9 +584,6 @@ export default function Chat() {
     };
   }, []);
 
-  // =======================================================
-  // OPEN CONVERSATION
-  // =======================================================
 
   const openConversation =
     async (
@@ -749,9 +628,6 @@ export default function Chat() {
           return;
         }
 
-        // =================================================
-        // CREATE OR GET CONVERSATION
-        // =================================================
 
         const conversationResponse =
           await fetch(
@@ -798,9 +674,7 @@ export default function Chat() {
           );
         }
 
-        // =================================================
-        // SET CONVERSATION
-        // =================================================
+
 
         setConversation(
           currentConversation
@@ -815,9 +689,6 @@ export default function Chat() {
         currentConversationIdRef.current =
           currentConversation._id;
 
-        // =================================================
-        // LOAD MESSAGES
-        // =================================================
 
         const messagesResponse =
           await fetch(
@@ -860,9 +731,6 @@ export default function Chat() {
           );
         }
 
-        // =================================================
-        // JOIN SOCKET ROOM
-        // =================================================
 
         if (
           socket?.connected
@@ -876,9 +744,6 @@ export default function Chat() {
           );
         }
 
-        // =================================================
-        // MARK AS READ
-        // =================================================
 
         await fetch(
           `${API_URL}/conversations/${currentConversation._id}/read`,
@@ -903,9 +768,6 @@ export default function Chat() {
       }
     };
 
-  // =======================================================
-  // SEND MESSAGE
-  // =======================================================
 
   const send = () => {
     if (
@@ -960,9 +822,6 @@ export default function Chat() {
     );
   };
 
-  // =======================================================
-  // RENDER
-  // =======================================================
 
   return (
     <div
@@ -972,15 +831,9 @@ export default function Chat() {
           "calc(100vh - 56px)",
       }}
     >
-      {/* ================================================= */}
-      {/* SIDEBAR */}
-      {/* ================================================= */}
 
       <div className="w-72 bg-white border-r border-[#E8E8F0] flex flex-col shrink-0">
-        {/* ----------------------------------------------- */}
-        {/* HEADER */}
-        {/* ----------------------------------------------- */}
-
+      
         <div className="p-4 border-b border-[#E8E8F0]">
           <h3 className="font-semibold text-[#1A1A2E] mb-3">
             Messages
@@ -1016,11 +869,6 @@ export default function Chat() {
             />
           </div>
         </div>
-
-        {/* ----------------------------------------------- */}
-        {/* PARTICIPANT LIST */}
-        {/* ----------------------------------------------- */}
-
         <div className="flex-1 overflow-y-auto">
           {loadingParticipants ? (
             <div className="p-6 text-center text-sm text-[#9090A8]">
@@ -1112,15 +960,8 @@ export default function Chat() {
         </div>
       </div>
 
-      {/* ================================================= */}
-      {/* CHAT AREA */}
-      {/* ================================================= */}
-
       <div className="flex-1 flex flex-col bg-[#FAFAF7]">
         {!selectedParticipant ? (
-          /* --------------------------------------------- */
-          /* NO PARTICIPANT */
-          /* --------------------------------------------- */
 
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
@@ -1152,9 +993,6 @@ export default function Chat() {
           </div>
         ) : (
           <>
-            {/* ------------------------------------------- */}
-            {/* CHAT HEADER */}
-            {/* ------------------------------------------- */}
 
             <div className="bg-white border-b border-[#E8E8F0] px-6 py-4 flex items-center gap-4">
               {/* AVATAR */}
@@ -1307,10 +1145,6 @@ export default function Chat() {
                 )
               )}
             </div>
-
-            {/* ------------------------------------------- */}
-            {/* MESSAGE INPUT */}
-            {/* ------------------------------------------- */}
 
             <div className="bg-white border-t border-[#E8E8F0] p-4">
               <div className="flex gap-3">

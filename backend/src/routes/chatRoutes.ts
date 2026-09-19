@@ -13,28 +13,24 @@ import {
 
 const router = Router();
 
-// Admin participant list
 router.get(
   "/participants",
   authMiddleware,
   getChatParticipants
 );
 
-// Conversations
 router.get(
   "/conversations",
   authMiddleware,
   getMyConversations
 );
 
-// Create/find conversation
 router.post(
   "/conversations",
   authMiddleware,
   createConversation
 );
 
-// Messages
 router.get(
   "/conversations/:conversationId/messages",
   authMiddleware,
@@ -47,7 +43,7 @@ router.post(
   sendMessage
 );
 
-// Read
+
 router.patch(
   "/conversations/:conversationId/read",
   authMiddleware,

@@ -23,8 +23,6 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no Origin header
-      // (Postman, curl, server-to-server requests, etc.)
       if (!origin) {
         return callback(null, true);
       }
@@ -49,17 +47,9 @@ app.use(
   })
 );
 
-/* =========================================================
-   MIDDLEWARE
-   ========================================================= */
 
 app.use(express.json());
 
-/* =========================================================
-   API ROUTES
-   ========================================================= */
-
-// Local / traditional API routes
 app.use("/api/announcements", announcementRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);

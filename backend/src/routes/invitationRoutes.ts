@@ -40,14 +40,6 @@ router.post(
   resendInvitation
 );
 
-// PUBLIC INVITATION ROUTES
-
-// =========================================================
-
-// ---------------------------------------------------------
-// GET INVITATION DETAILS
-// ---------------------------------------------------------
-
 router.get(
   "/accept/:token",
   getInvitationByToken

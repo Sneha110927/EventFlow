@@ -10,10 +10,6 @@ import {
 
 const router = Router();
 
-// GENERAL AUTH
-// ============================================================
-
-// Register
 router.post(
   "/register",
   register

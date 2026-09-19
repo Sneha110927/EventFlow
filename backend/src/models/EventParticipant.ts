@@ -13,21 +13,18 @@ export interface IEventParticipant extends Document {
 const eventParticipantSchema =
   new Schema<IEventParticipant>(
     {
-      // Event the participant belongs to
       event: {
         type: Schema.Types.ObjectId,
         ref: "Event",
         required: true,
       },
 
-      // User/participant account
       user: {
         type: Schema.Types.ObjectId,
         ref: "User",
         required: true,
       },
 
-      // Participant's current event status
       status: {
         type: String,
         enum: [
@@ -38,14 +35,13 @@ const eventParticipantSchema =
         default: "accepted",
       },
 
-      // Whether the participant has completed
-      // the event registration
+  
       registrationCompleted: {
         type: Boolean,
         default: false,
       },
 
-      // When the participant joined the event
+      
       joinedAt: {
         type: Date,
         default: Date.now,
@@ -56,7 +52,7 @@ const eventParticipantSchema =
     }
   );
 
-// A user should not be added to the same event twice
+
 eventParticipantSchema.index(
   { event: 1, user: 1 },
   { unique: true }

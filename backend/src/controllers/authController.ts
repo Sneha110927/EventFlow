@@ -48,10 +48,6 @@ const createEmailTransporter = () => {
   });
 };
 
-// ============================================================
-// SEND OTP EMAIL
-// ============================================================
-
 const sendOTPEmail = async (
   email: string,
   otp: string
@@ -738,10 +734,6 @@ export const verifyParticipantLoginOTP =
       console.log(
         `✅ Participant ${participant.email} logged in successfully.`
       );
-
-      // ------------------------------------------------------
-      // Response
-      // ------------------------------------------------------
 
       return res.status(200).json({
         message:

@@ -130,7 +130,6 @@ export const getMyEvents = async (
         message: "Authentication required",
       });
     }
-console.log("🔥 NEW getMyEvents IS RUNNING");
     const eventParticipants = await EventParticipant.find({
       user: req.user.userId,
     }).sort({
