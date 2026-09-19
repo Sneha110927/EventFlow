@@ -11,7 +11,6 @@ import AdminDashboard, {
 } from "./pages/admin/Dashboard";
 
 import Participants from "./pages/admin/Participants";
-import ParticipantProfile from "./pages/admin/ParticipantProfile";
 import Invitations from "./pages/admin/Invitiations";
 import Announcements from "./pages/admin/Announcements";
 import Documents from "./pages/admin/Documents";
@@ -317,7 +316,7 @@ export default function App() {
         <Participants />
       )}
 
-      {view === "participant-profile" &&
+      {/* {view === "participant-profile" &&
         selectedParticipantId && (
           <ParticipantProfile
             participantId={selectedParticipantId}
@@ -325,7 +324,7 @@ export default function App() {
               setView("participants")
             }
           />
-        )}
+        )} */}
 
       {view === "invitations" && (
         <Invitations />
