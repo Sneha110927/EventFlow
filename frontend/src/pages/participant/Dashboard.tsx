@@ -1867,12 +1867,12 @@ export default function ParticipantDashboard({
         ),
     },
 
-    {
-      label: 'Check-in Ready',
-      done:
-        participantEvent?.registrationCompleted ||
-        false,
-    },
+    // {
+    //   label: 'Check-in Ready',
+    //   done:
+    //     participantEvent?.registrationCompleted ||
+    //     false,
+    // },
   ];
 
   const nextProgressIndex =
