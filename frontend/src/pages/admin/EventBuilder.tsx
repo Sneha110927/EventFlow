@@ -14,6 +14,7 @@ interface Modules {
   chat: boolean;
   accommodation: boolean;
   travel: boolean;
+  virtualMeeting: boolean;
 }
 
 const defaultModules: Modules = {
@@ -25,6 +26,19 @@ const defaultModules: Modules = {
   chat: true,
   accommodation: false,
   travel: false,
+  virtualMeeting: false,
+};
+
+const moduleLabels: Record<keyof Modules, string> = {
+  participants: "Participants",
+  registration: "Registration",
+  schedule: "Schedule",
+  documents: "Documents",
+  announcements: "Announcements",
+  chat: "Chat",
+  accommodation: "Accommodation",
+  travel: "Travel",
+  virtualMeeting: "Virtual Meeting",
 };
 
 export default function EventBuilder({
@@ -36,6 +50,7 @@ export default function EventBuilder({
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [location, setLocation] = useState("");
+  const [meetingLink, setMeetingLink] = useState("");
   const [modules, setModules] =
     useState<Modules>(defaultModules);
 
@@ -43,13 +58,22 @@ export default function EventBuilder({
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const updateModule = (
-    module: keyof Modules
-  ) => {
-    setModules((current) => ({
-      ...current,
-      [module]: !current[module],
-    }));
+  const updateModule = (module: keyof Modules) => {
+    setModules((current) => {
+      const updated = {
+        ...current,
+        [module]: !current[module],
+      };
+
+      if (
+        module === "virtualMeeting" &&
+        !updated.virtualMeeting
+      ) {
+        setMeetingLink("");
+      }
+
+      return updated;
+    });
   };
 
   const handleSubmit = async (
@@ -81,6 +105,37 @@ export default function EventBuilder({
       return;
     }
 
+    if (
+      modules.virtualMeeting &&
+      !meetingLink.trim()
+    ) {
+      setError(
+        "Please enter the Google Meet link for this event."
+      );
+      return;
+    }
+
+    if (modules.virtualMeeting) {
+      try {
+        const url = new URL(meetingLink.trim());
+
+        if (
+          url.protocol !== "https:" ||
+          !url.hostname.includes("meet.google.com")
+        ) {
+          setError(
+            "Please enter a valid Google Meet link."
+          );
+          return;
+        }
+      } catch {
+        setError(
+          "Please enter a valid Google Meet link."
+        );
+        return;
+      }
+    }
+
     const token =
       localStorage.getItem("token");
 
@@ -106,10 +161,16 @@ export default function EventBuilder({
             name: name.trim(),
             type: type.trim(),
             description: description.trim(),
-            startDate: startDate || undefined,
-            endDate: endDate || undefined,
+            startDate:
+              startDate || undefined,
+            endDate:
+              endDate || undefined,
             location: location.trim(),
             modules,
+            meetingLink:
+              modules.virtualMeeting
+                ? meetingLink.trim()
+                : "",
           }),
         }
       );
@@ -133,6 +194,7 @@ export default function EventBuilder({
       setStartDate("");
       setEndDate("");
       setLocation("");
+      setMeetingLink("");
       setModules(defaultModules);
 
       setTimeout(() => {
@@ -156,6 +218,7 @@ export default function EventBuilder({
           <h1 className="font-display text-2xl text-[#1A1A2E]">
             Create New Event
           </h1>
+
           <p className="text-sm text-[#9090A8] mt-1">
             Set up your event and choose the features you need.
           </p>
@@ -163,7 +226,9 @@ export default function EventBuilder({
 
         <button
           type="button"
-          onClick={() => onNavigate("dashboard")}
+          onClick={() =>
+            onNavigate("dashboard")
+          }
           className="px-4 py-2 rounded-xl border border-[#E8E8F0] bg-white text-sm font-medium text-[#5A5A72] hover:bg-[#F7F7F3] transition-colors"
         >
           Cancel
@@ -267,7 +332,9 @@ export default function EventBuilder({
               <input
                 type="date"
                 value={endDate}
-                min={startDate || undefined}
+                min={
+                  startDate || undefined
+                }
                 onChange={(e) =>
                   setEndDate(
                     e.target.value
@@ -324,8 +391,8 @@ export default function EventBuilder({
                     : "border-[#E8E8F0] bg-[#FAFAF7]"
                 }`}
               >
-                <span className="text-sm font-medium text-[#1A1A2E] capitalize">
-                  {module}
+                <span className="text-sm font-medium text-[#1A1A2E]">
+                  {moduleLabels[module]}
                 </span>
 
                 <span
@@ -346,6 +413,58 @@ export default function EventBuilder({
               </button>
             ))}
           </div>
+
+          {modules.virtualMeeting && (
+            <div className="mt-5 rounded-xl border border-[#D9DEFA] bg-[#F8F9FF] p-5">
+              <div className="flex items-start gap-3 mb-4">
+                <div className="w-9 h-9 rounded-lg bg-[#EEF2FF] flex items-center justify-center shrink-0">
+                  <svg
+                    className="w-5 h-5 text-[#5B6FD4]"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                    />
+                  </svg>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-semibold text-[#1A1A2E]">
+                    Virtual Event
+                  </h3>
+
+                  <p className="text-xs text-[#9090A8] mt-1">
+                    Add a Google Meet link for participants who cannot attend the event physically.
+                  </p>
+                </div>
+              </div>
+
+              <label className="block text-sm font-medium text-[#1A1A2E] mb-1.5">
+                Google Meet Link
+              </label>
+
+              <input
+                type="url"
+                value={meetingLink}
+                onChange={(e) =>
+                  setMeetingLink(
+                    e.target.value
+                  )
+                }
+                placeholder="https://meet.google.com/abc-defg-hij"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-[#E8E8F0] bg-white text-sm outline-none focus:border-[#5B6FD4] focus:ring-2 focus:ring-[#5B6FD4]/10"
+              />
+
+              <p className="text-xs text-[#9090A8] mt-2">
+                Only participants of this event will receive access to this virtual meeting.
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="flex justify-end gap-3">
