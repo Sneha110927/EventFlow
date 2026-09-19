@@ -88,11 +88,7 @@ interface ParticipantDocument {
   updatedAt: string;
 }
 
-/*
-|--------------------------------------------------------------------------
-| DOCUMENT REQUEST
-|--------------------------------------------------------------------------
-*/
+
 
 interface ParticipantDocumentRequest {
   _id: string;
@@ -212,11 +208,7 @@ const API_BASE_URL =
 const SOCKET_URL =
   'https://event-flow-nine.vercel.app';
 
-/*
-|--------------------------------------------------------------------------
-| Small API helper
-|--------------------------------------------------------------------------
-*/
+
 
 async function apiRequest(
   url: string,
@@ -272,11 +264,7 @@ async function apiRequest(
 export default function ParticipantDashboard({
   onLogout,
 }: ParticipantDashboardProps) {
-  /*
-  |--------------------------------------------------------------------------
-  | GENERAL
-  |--------------------------------------------------------------------------
-  */
+  
 
   const [
     activeTab,
@@ -319,11 +307,7 @@ export default function ParticipantDashboard({
     setNotification,
   ] = useState('');
 
-  /*
-  |--------------------------------------------------------------------------
-  | DOCUMENTS
-  |--------------------------------------------------------------------------
-  */
+  
 
   const [
     documents,
@@ -344,13 +328,7 @@ export default function ParticipantDashboard({
     setUploading,
   ] = useState(false);
 
-  /*
-  |--------------------------------------------------------------------------
-  | Used to prevent the polling system from
-  | showing the same request notification
-  | repeatedly.
-  |--------------------------------------------------------------------------
-  */
+  
 
   const knownRequestIdsRef =
     useRef<Set<string>>(
@@ -360,11 +338,7 @@ export default function ParticipantDashboard({
   const initialRequestsLoadedRef =
     useRef(false);
 
-  /*
-  |--------------------------------------------------------------------------
-  | ANNOUNCEMENTS
-  |--------------------------------------------------------------------------
-  */
+  
 
   const [
     announcements,
@@ -373,11 +347,7 @@ export default function ParticipantDashboard({
     ParticipantAnnouncement[]
   >([]);
 
-  /*
-  |--------------------------------------------------------------------------
-  | CHAT
-  |--------------------------------------------------------------------------
-  */
+  
 
   const [
     messages,
@@ -425,11 +395,7 @@ export default function ParticipantDashboard({
       new Set()
     );
 
-  /*
-  |--------------------------------------------------------------------------
-  | NOTIFICATION
-  |--------------------------------------------------------------------------
-  */
+  
 
   const show = useCallback(
     (message: string) => {
@@ -442,18 +408,7 @@ export default function ParticipantDashboard({
     []
   );
 
-  /*
-  |--------------------------------------------------------------------------
-  | LOAD DOCUMENT REQUESTS
-  |--------------------------------------------------------------------------
-  |
-  | Admin creates requests from the admin Documents
-  | page. Participants retrieve their own requests
-  | using:
-  |
-  | GET /api/documents/my-requests
-  |
-  */
+  
 
   const loadDocumentRequests =
     useCallback(
@@ -500,11 +455,7 @@ export default function ParticipantDashboard({
           const incomingRequests =
             data.requests || [];
 
-          /*
-          |--------------------------------------------------------------------------
-          | Detect newly-created pending requests.
-          |--------------------------------------------------------------------------
-          */
+          
 
           if (
             notifyOnNew &&
@@ -565,11 +516,7 @@ export default function ParticipantDashboard({
       [show]
     );
 
-  /*
-  |--------------------------------------------------------------------------
-  | LOAD PARTICIPANT DASHBOARD
-  |--------------------------------------------------------------------------
-  */
+  
 
   const loadParticipantData =
     useCallback(
@@ -593,11 +540,7 @@ export default function ParticipantDashboard({
         }
 
         try {
-          /*
-          |--------------------------------------------------------------------------
-          | Logged-in user
-          |--------------------------------------------------------------------------
-          */
+          
 
           if (storedUser) {
             try {
@@ -616,11 +559,7 @@ export default function ParticipantDashboard({
             }
           }
 
-          /*
-          |--------------------------------------------------------------------------
-          | EVENTS
-          |--------------------------------------------------------------------------
-          */
+          
 
           const eventsResult =
             await apiRequest(
@@ -649,82 +588,25 @@ export default function ParticipantDashboard({
             );
           }
 
-          if (
+          const currentEvent =
             eventsData.events &&
-            eventsData.events.length >
-              0
-          ) {
-            setParticipantEvent(
-              eventsData.events[0]
-            );
-          } else {
-            setParticipantEvent(
-              null
-            );
-          }
+            eventsData.events.length > 0
+              ? eventsData.events[0]
+              : null;
 
-          /*
-          |--------------------------------------------------------------------------
-          | DOCUMENTS
-          |--------------------------------------------------------------------------
-          */
-
-          const documentsResult =
-            await apiRequest(
-              `${API_BASE_URL}/documents/my-documents`,
-              {
-                method: 'GET',
-                headers: {
-                  Authorization:
-                    `Bearer ${token}`,
-                },
-              }
-            );
-
-          const documentsData =
-            documentsResult.data as {
-              documents?: ParticipantDocument[];
-              message?: string;
-            };
-
-          if (
-            !documentsResult.response.ok
-          ) {
-            throw new Error(
-              documentsData.message ||
-                'Failed to load documents'
-            );
-          }
-
-          setDocuments(
-            documentsData.documents ||
-              []
+          setParticipantEvent(
+            currentEvent
           );
 
-          /*
-          |--------------------------------------------------------------------------
-          | DOCUMENT REQUESTS
-          |--------------------------------------------------------------------------
-          |
-          | This is separate so a temporary request
-          | API problem does not destroy the dashboard.
-          |
-          */
+          const documentsEnabled =
+            currentEvent?.event?.modules?.documents !== false;
+          const announcementsEnabled =
+            currentEvent?.event?.modules?.announcements !== false;
 
-          await loadDocumentRequests(
-            false
-          );
-
-          /*
-          |--------------------------------------------------------------------------
-          | ANNOUNCEMENTS
-          |--------------------------------------------------------------------------
-          */
-
-          try {
-            const announcementResult =
+          if (documentsEnabled) {
+            const documentsResult =
               await apiRequest(
-                `${API_BASE_URL}/announcements/participant`,
+                `${API_BASE_URL}/documents/my-documents`,
                 {
                   method: 'GET',
                   headers: {
@@ -734,34 +616,75 @@ export default function ParticipantDashboard({
                 }
               );
 
-            const announcementData =
-              announcementResult.data as {
-                announcements?: ParticipantAnnouncement[];
+            const documentsData =
+              documentsResult.data as {
+                documents?: ParticipantDocument[];
+                message?: string;
               };
 
             if (
-              announcementResult.response.ok
+              !documentsResult.response.ok
             ) {
-              setAnnouncements(
-                announcementData.announcements ||
-                  []
-              );
-            } else {
-              setAnnouncements(
-                []
+              throw new Error(
+                documentsData.message ||
+                  'Failed to load documents'
               );
             }
-          } catch (
-            announcementError
-          ) {
-            console.warn(
-              'Announcements could not be loaded:',
-              announcementError
+
+            setDocuments(
+              documentsData.documents ||
+                []
             );
 
-            setAnnouncements(
-              []
+            await loadDocumentRequests(
+              false
             );
+          } else {
+            setDocuments([]);
+            setDocumentRequests([]);
+          }
+
+          if (announcementsEnabled) {
+            try {
+              const announcementResult =
+                await apiRequest(
+                  `${API_BASE_URL}/announcements/participant`,
+                  {
+                    method: 'GET',
+                    headers: {
+                      Authorization:
+                        `Bearer ${token}`,
+                    },
+                  }
+                );
+
+              const announcementData =
+                announcementResult.data as {
+                  announcements?: ParticipantAnnouncement[];
+                };
+
+              if (
+                announcementResult.response.ok
+              ) {
+                setAnnouncements(
+                  announcementData.announcements ||
+                    []
+                );
+              } else {
+                setAnnouncements([]);
+              }
+            } catch (
+              announcementError
+            ) {
+              console.warn(
+                'Announcements could not be loaded:',
+                announcementError
+              );
+
+              setAnnouncements([]);
+            }
+          } else {
+            setAnnouncements([]);
           }
         } catch (err) {
           console.error(
@@ -783,11 +706,7 @@ export default function ParticipantDashboard({
       ]
     );
 
-  /*
-  |--------------------------------------------------------------------------
-  | INITIAL LOAD
-  |--------------------------------------------------------------------------
-  */
+  
 
   useEffect(() => {
     const timer =
@@ -804,15 +723,7 @@ export default function ParticipantDashboard({
     loadParticipantData,
   ]);
 
-  /*
-  |--------------------------------------------------------------------------
-  | DOCUMENT REQUEST POLLING
-  |--------------------------------------------------------------------------
-  |
-  | Every 10 seconds we check whether the admin
-  | created a new document request.
-  |
-  */
+  
 
   useEffect(() => {
     const token =
@@ -820,7 +731,10 @@ export default function ParticipantDashboard({
         'token'
       );
 
-    if (!token) {
+    if (
+      !token ||
+      participantEvent?.event?.modules?.documents === false
+    ) {
       return;
     }
 
@@ -838,13 +752,10 @@ export default function ParticipantDashboard({
     };
   }, [
     loadDocumentRequests,
+    participantEvent?.event?.modules?.documents,
   ]);
 
-  /*
-  |--------------------------------------------------------------------------
-  | SOCKET.IO
-  |--------------------------------------------------------------------------
-  */
+  
 
   useEffect(() => {
     const token =
@@ -852,7 +763,12 @@ export default function ParticipantDashboard({
         'token'
       );
 
-    if (!token) {
+    if (
+      !token ||
+      participantEvent?.event?.modules?.chat === false
+    ) {
+      socketRef.current?.disconnect();
+      socketRef.current = null;
       return;
     }
 
@@ -995,13 +911,12 @@ export default function ParticipantDashboard({
       socketRef.current =
         null;
     };
-  }, [show]);
+  }, [
+    show,
+    participantEvent?.event?.modules?.chat,
+  ]);
 
-  /*
-  |--------------------------------------------------------------------------
-  | LOAD CHAT
-  |--------------------------------------------------------------------------
-  */
+  
 
   const loadConversation =
     useCallback(
@@ -1023,11 +938,7 @@ export default function ParticipantDashboard({
             true
           );
 
-          /*
-          |--------------------------------------------------------------------------
-          | Get conversations
-          |--------------------------------------------------------------------------
-          */
+          
 
           const result =
             await apiRequest(
@@ -1058,11 +969,7 @@ export default function ParticipantDashboard({
             data.conversations?.[0] ||
             null;
 
-          /*
-          |--------------------------------------------------------------------------
-          | No conversation
-          |--------------------------------------------------------------------------
-          */
+          
 
           if (
             !currentConversation
@@ -1083,11 +990,7 @@ export default function ParticipantDashboard({
             return;
           }
 
-          /*
-          |--------------------------------------------------------------------------
-          | Store conversation
-          |--------------------------------------------------------------------------
-          */
+          
 
           setConversation(
             currentConversation
@@ -1098,11 +1001,7 @@ export default function ParticipantDashboard({
 
           messageIdsRef.current.clear();
 
-          /*
-          |--------------------------------------------------------------------------
-          | Join socket room
-          |--------------------------------------------------------------------------
-          */
+          
 
           if (
             socketRef.current?.connected
@@ -1116,11 +1015,7 @@ export default function ParticipantDashboard({
             );
           }
 
-          /*
-          |--------------------------------------------------------------------------
-          | Load messages
-          |--------------------------------------------------------------------------
-          */
+          
 
           const messagesResult =
             await apiRequest(
@@ -1167,11 +1062,7 @@ export default function ParticipantDashboard({
             loadedMessages
           );
 
-          /*
-          |--------------------------------------------------------------------------
-          | Mark as read
-          |--------------------------------------------------------------------------
-          */
+          
 
           await fetch(
             `${API_BASE_URL}/chat/conversations/${currentConversation._id}/read`,
@@ -1203,15 +1094,12 @@ export default function ParticipantDashboard({
       [show]
     );
 
-  /*
-  |--------------------------------------------------------------------------
-  | OPEN CHAT TAB
-  |--------------------------------------------------------------------------
-  */
+  
 
   useEffect(() => {
     if (
-      activeTab !== 'chat'
+      activeTab !== 'chat' ||
+      participantEvent?.event?.modules?.chat === false
     ) {
       return;
     }
@@ -1229,13 +1117,10 @@ export default function ParticipantDashboard({
   }, [
     activeTab,
     loadConversation,
+    participantEvent?.event?.modules?.chat,
   ]);
 
-  /*
-  |--------------------------------------------------------------------------
-  | SEND CHAT MESSAGE
-  |--------------------------------------------------------------------------
-  */
+  
 
   const sendMsg =
     useCallback(
@@ -1274,11 +1159,7 @@ export default function ParticipantDashboard({
           const socket =
             socketRef.current;
 
-          /*
-          |--------------------------------------------------------------------------
-          | SOCKET.IO
-          |--------------------------------------------------------------------------
-          */
+          
 
           if (
             socket &&
@@ -1338,11 +1219,7 @@ export default function ParticipantDashboard({
               }
             );
           } else {
-            /*
-            |--------------------------------------------------------------------------
-            | REST FALLBACK
-            |--------------------------------------------------------------------------
-            */
+            
 
             const result =
               await apiRequest(
@@ -1422,20 +1299,7 @@ export default function ParticipantDashboard({
       ]
     );
 
-  /*
-  |--------------------------------------------------------------------------
-  | UPLOAD DOCUMENT
-  |--------------------------------------------------------------------------
-  |
-  | requestId is optional.
-  |
-  | Normal upload:
-  |   file + eventId
-  |
-  | Requested document:
-  |   file + eventId + requestId
-  |
-  */
+  
 
   const uploadFile =
     useCallback(
@@ -1466,11 +1330,7 @@ export default function ParticipantDashboard({
             return;
           }
 
-          /*
-          |--------------------------------------------------------------------------
-          | File type validation
-          |--------------------------------------------------------------------------
-          */
+          
 
           const allowedTypes = [
             'application/pdf',
@@ -1489,11 +1349,7 @@ export default function ParticipantDashboard({
             return;
           }
 
-          /*
-          |--------------------------------------------------------------------------
-          | File size validation
-          |--------------------------------------------------------------------------
-          */
+          
 
           const maxSize =
             10 * 1024 * 1024;
@@ -1511,11 +1367,7 @@ export default function ParticipantDashboard({
             true
           );
 
-          /*
-          |--------------------------------------------------------------------------
-          | FormData
-          |--------------------------------------------------------------------------
-          */
+          
 
           const formData =
             new FormData();
@@ -1530,11 +1382,7 @@ export default function ParticipantDashboard({
             eventId
           );
 
-          /*
-          |--------------------------------------------------------------------------
-          | Attach the specific document request
-          |--------------------------------------------------------------------------
-          */
+          
 
           if (requestId) {
             formData.append(
@@ -1543,11 +1391,7 @@ export default function ParticipantDashboard({
             );
           }
 
-          /*
-          |--------------------------------------------------------------------------
-          | Backend upload
-          |--------------------------------------------------------------------------
-          */
+          
 
           const result =
             await apiRequest(
@@ -1578,11 +1422,7 @@ export default function ParticipantDashboard({
             );
           }
 
-          /*
-          |--------------------------------------------------------------------------
-          | Add returned MongoDB document
-          |--------------------------------------------------------------------------
-          */
+          
 
           if (
             data.document
@@ -1597,11 +1437,7 @@ export default function ParticipantDashboard({
             );
           }
 
-          /*
-          |--------------------------------------------------------------------------
-          | Update the matching request
-          |--------------------------------------------------------------------------
-          */
+          
 
           if (requestId) {
             setDocumentRequests(
@@ -1666,36 +1502,12 @@ export default function ParticipantDashboard({
       ]
     );
 
-  // /*
-  // |--------------------------------------------------------------------------
-  // | GENERIC FILE SELECTION
-  // |--------------------------------------------------------------------------
-  // */
 
-  // const handleFileChange =
-  //   async (
-  //     event: ChangeEvent<HTMLInputElement>
-  //   ) => {
-  //     const file =
-  //       event.target.files?.[0];
 
-  //     if (!file) {
-  //       return;
-  //     }
 
-  //     await uploadFile(
-  //       file
-  //     );
 
-  //     event.target.value =
-  //       '';
-  //   };
 
-  /*
-  |--------------------------------------------------------------------------
-  | REQUEST-SPECIFIC FILE SELECTION
-  |--------------------------------------------------------------------------
-  */
+  
 
   const handleRequestFileChange =
     async (
@@ -1718,11 +1530,7 @@ export default function ParticipantDashboard({
         '';
     };
 
-  /*
-  |--------------------------------------------------------------------------
-  | DOWNLOAD DOCUMENT
-  |--------------------------------------------------------------------------
-  */
+  
 
   const downloadDocument =
     useCallback(
@@ -1778,9 +1586,7 @@ export default function ParticipantDashboard({
                 message =
                   data.message ||
                   message;
-              } catch {
-                // Ignore invalid JSON.
-              }
+              } catch { /* empty */ }
             }
 
             throw new Error(
@@ -1835,11 +1641,7 @@ export default function ParticipantDashboard({
       [show]
     );
 
-  /*
-  |--------------------------------------------------------------------------
-  | MARK ANNOUNCEMENT AS READ
-  |--------------------------------------------------------------------------
-  */
+  
 
   const markAnnouncementAsRead =
     useCallback(
@@ -1876,11 +1678,7 @@ export default function ParticipantDashboard({
       []
     );
 
-  /*
-  |--------------------------------------------------------------------------
-  | EVENT
-  |--------------------------------------------------------------------------
-  */
+  
 
   const event =
     participantEvent?.event;
@@ -1889,11 +1687,7 @@ export default function ParticipantDashboard({
     participantEvent?.status ||
     'pending';
 
-  /*
-  |--------------------------------------------------------------------------
-  | DOCUMENT REQUEST COUNTS
-  |--------------------------------------------------------------------------
-  */
+  
 
   const pendingDocumentRequests =
     documentRequests.filter(
@@ -1907,11 +1701,7 @@ export default function ParticipantDashboard({
   const pendingDocumentRequestCount =
     pendingDocumentRequests.length;
 
-  /*
-  |--------------------------------------------------------------------------
-  | DATE FORMAT
-  |--------------------------------------------------------------------------
-  */
+  
 
   const formatDate =
     useCallback(
@@ -1945,11 +1735,7 @@ export default function ParticipantDashboard({
       []
     );
 
-  /*
-  |--------------------------------------------------------------------------
-  | DATE RANGE
-  |--------------------------------------------------------------------------
-  */
+  
 
   const formatDateRange =
     useCallback(() => {
@@ -2011,29 +1797,39 @@ export default function ParticipantDashboard({
       formatDate,
     ]);
 
-  /*
-  |--------------------------------------------------------------------------
-  | NAVIGATION
-  |--------------------------------------------------------------------------
-  */
+  
+
+  const modules = event?.modules;
 
   const navItems = [
     {
       id: 'home',
       label: 'Overview',
     },
-    {
-      id: 'documents',
-      label: `Documents (${documents.length})`,
-    },
-    {
-      id: 'announcements',
-      label: 'Announcements',
-    },
-    {
-      id: 'chat',
-      label: 'Chat with Admin',
-    },
+    ...(modules?.documents !== false
+      ? [
+          {
+            id: 'documents',
+            label: `Documents (${documents.length})`,
+          },
+        ]
+      : []),
+    ...(modules?.announcements !== false
+      ? [
+          {
+            id: 'announcements',
+            label: 'Announcements',
+          },
+        ]
+      : []),
+    ...(modules?.chat !== false
+      ? [
+          {
+            id: 'chat',
+            label: 'Chat with Admin',
+          },
+        ]
+      : []),
   ];
 
 
@@ -2086,82 +1882,25 @@ export default function ParticipantDashboard({
       ) => !item.done
     );
 
-  /*
-  |--------------------------------------------------------------------------
-  | ENABLED MODULES
-  |--------------------------------------------------------------------------
-  */
+  
 
-  // const enabledModules =
-  //   useMemo(() => {
-  //     if (
-  //       !event?.modules
-  //     ) {
-  //       return [];
-  //     }
 
-  //     const moduleLabels: Record<
-  //       string,
-  //       string
-  //     > = {
-  //       participants:
-  //         'Participants',
 
-  //       registration:
-  //         'Registration',
 
-  //       schedule:
-  //         'Schedule',
 
-  //       documents:
-  //         'Documents',
 
-  //       announcements:
-  //         'Announcements',
 
-  //       chat:
-  //         'Chat',
 
-  //       accommodation:
-  //         'Accommodation',
 
-  //       travel:
-  //         'Travel',
-  //     };
 
-  //     return Object.entries(
-  //       event.modules
-  //     )
-  //       .filter(
-  //         (
-  //           [, enabled]
-  //         ) => enabled
-  //       )
-  //       .map(
-  //         (
-  //           [key]
-  //         ) =>
-  //           moduleLabels[
-  //             key
-  //           ] || key
-  //       );
-  //   }, [event]);
 
-  /*
-  |--------------------------------------------------------------------------
-  | LATEST ANNOUNCEMENT
-  |--------------------------------------------------------------------------
-  */
+  
 
   const latestAnnouncement =
     announcements[0] ||
     null;
 
-  /*
-  |--------------------------------------------------------------------------
-  | LOADING
-  |--------------------------------------------------------------------------
-  */
+  
 
   if (loading) {
     return (
@@ -2179,11 +1918,7 @@ export default function ParticipantDashboard({
     );
   }
 
-  /*
-  |--------------------------------------------------------------------------
-  | ERROR
-  |--------------------------------------------------------------------------
-  */
+  
 
   if (error) {
     return (
@@ -2220,11 +1955,7 @@ export default function ParticipantDashboard({
     );
   }
 
-  /*
-  |--------------------------------------------------------------------------
-  | NO EVENT
-  |--------------------------------------------------------------------------
-  */
+  
 
   if (
     !participantEvent ||
@@ -2295,18 +2026,11 @@ export default function ParticipantDashboard({
     );
   }
 
-  /*
-  |--------------------------------------------------------------------------
-  | MAIN DASHBOARD
-  |--------------------------------------------------------------------------
-  */
+  
 
   return (
     <div className="min-h-full bg-[#FAFAF7]">
 
-      {/* =====================================================
-          NOTIFICATION
-      ====================================================== */}
 
       {notification && (
         <div className="fixed top-4 right-4 z-50 bg-[#3D9E8C] text-white px-5 py-3 rounded-2xl shadow-elevated text-sm font-medium">
@@ -2314,9 +2038,6 @@ export default function ParticipantDashboard({
         </div>
       )}
 
-      {/* =====================================================
-          TOP NAVIGATION
-      ====================================================== */}
 
       <nav className="bg-white border-b border-[#E8E8F0] sticky top-0 z-40">
 
@@ -2371,9 +2092,6 @@ export default function ParticipantDashboard({
 
       <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
 
-        {/* ===================================================
-            HERO
-        ==================================================== */}
 
       <div className="gradient-primary rounded-2xl p-6 text-white shadow-card">
   <p className="text-white/70 text-sm">
@@ -2428,10 +2146,12 @@ export default function ParticipantDashboard({
 
   </div>
 </div>
-<VirtualMeetingCard meetingLink={event.meetingLink} />
-        {/* ===================================================
-            TABS
-        ==================================================== */}
+{event.modules?.virtualMeeting &&
+          event.meetingLink && (
+          <VirtualMeetingCard
+            meetingLink={event.meetingLink}
+          />
+        )}
 
         <div className="flex gap-1 bg-white rounded-xl p-1 border border-[#E8E8F0] shadow-soft w-fit">
 
@@ -2489,21 +2209,14 @@ export default function ParticipantDashboard({
 
         </div>
 
-        {/* ===================================================
-            HOME
-        ==================================================== */}
 
         {activeTab ===
           'home' && (
           <div className="space-y-5">
 
-            {/* Registration Progress */}
 
             <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-6">
 
-              {/* <h3 className="font-semibold text-[#1A1A2E] mb-4">
-                Registration Progress
-              </h3> */}
 
               <div className="space-y-3">
 
@@ -2573,7 +2286,6 @@ export default function ParticipantDashboard({
 
             </div>
 
-            {/* Details */}
 
             <div className="grid sm:grid-cols-2 gap-4">
 
@@ -2697,259 +2409,12 @@ export default function ParticipantDashboard({
 
             </div>
 
-            {/* Enabled Modules */}
-{/* 
-            {enabledModules.length >
-              0 && (
-              <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-5">
 
-                <h3 className="font-semibold text-[#1A1A2E] mb-3 text-sm">
-                  Available Event Features
-                </h3>
 
-                <div className="flex flex-wrap gap-2">
 
-                  {enabledModules.map(
-                    (
-                      module
-                  ) => (
-                      <span
-                        key={
-                          module
-                        }
-                        className="text-xs bg-[#EEF2FF] text-[#5B6FD4] px-3 py-1.5 rounded-full font-medium"
-                      >
-                        {
-                          module
-                        }
-                      </span>
-                    )
-                  )}
 
-                </div>
 
-              </div>
-            )} */}
-
-            {/* =================================================
-                DOCUMENT REQUESTS
-            ================================================== */}
-
-            {/* <div
-              className={`bg-white rounded-2xl border shadow-soft p-5 ${
-                pendingDocumentRequestCount >
-                0
-                  ? 'border-[#F3C5B3]'
-                  : 'border-[#E8E8F0]'
-              }`}
-            >
-
-              <div className="flex items-center justify-between mb-3">
-
-                <div>
-
-                  <h3 className="font-semibold text-[#1A1A2E] text-sm">
-                    Document Requests
-                  </h3>
-
-                  <p className="text-xs text-[#9090A8] mt-1">
-                    Documents requested by your event administrator.
-                  </p>
-
-                </div>
-
-                {pendingDocumentRequestCount >
-                  0 && (
-                  <span className="bg-[#FEF3ED] text-[#E8824A] px-2.5 py-1 rounded-full text-xs font-semibold">
-                    {pendingDocumentRequestCount}{' '}
-                    pending
-                  </span>
-                )}
-
-              </div>
-
-              {documentRequests.length ===
-              0 ? (
-                <div className="text-center py-4">
-
-                  <p className="text-sm text-[#9090A8]">
-                    No document requests yet.
-                  </p>
-
-                </div>
-              ) : (
-                <div className="space-y-3">
-
-                  {documentRequests
-                    .filter(
-                      (
-                        request
-                      ) =>
-                        request.status ===
-                          'pending' ||
-                        request.status ===
-                          'rejected'
-                    )
-                    .slice(0, 3)
-                    .map(
-                      (
-                        request
-                      ) => (
-                        <div
-                          key={
-                            request._id
-                          }
-                          className="rounded-xl bg-[#FAFAF7] border border-[#E8E8F0] p-4"
-                        >
-
-                          <div className="flex items-start justify-between gap-3">
-
-                            <div className="min-w-0">
-
-                              <p className="text-sm font-semibold text-[#1A1A2E]">
-                                {
-                                  request.documentName
-                                }
-                              </p>
-
-                              {request.description && (
-                                <p className="text-xs text-[#5A5A72] mt-1">
-                                  {
-                                    request.description
-                                  }
-                                </p>
-                              )}
-
-                              <p className="text-xs text-[#9090A8] mt-2">
-                                Deadline:{' '}
-                                <span className="font-medium text-[#5A5A72]">
-                                  {formatDate(
-                                    request.deadline
-                                  )}
-                                </span>
-                              </p>
-
-                            </div>
-
-                            <span
-                              className={`text-xs px-2 py-1 rounded-full font-medium shrink-0 ${
-                                request.status ===
-                                'rejected'
-                                  ? 'bg-[#FDECEC] text-[#D95B5B]'
-                                  : 'bg-[#FEF3ED] text-[#E8824A]'
-                              }`}
-                            >
-                              {request.status ===
-                              'rejected'
-                                ? 'Rejected'
-                                : 'Pending'}
-                            </span>
-
-                          </div>
-
-                        </div>
-                      )
-                    )}
-
-                  {pendingDocumentRequestCount >
-                    0 && (
-                    <button
-                      onClick={() =>
-                        setActiveTab(
-                          'documents'
-                        )
-                      }
-                      className="text-xs text-[#5B6FD4] font-medium hover:underline"
-                    >
-                      View and upload requested documents →
-                    </button>
-                  )}
-
-                </div>
-              )}
-
-            </div> */}
-
-            {/* Document Status */}
-{/* 
-            <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-5">
-
-              <h3 className="font-semibold text-[#1A1A2E] mb-3 text-sm">
-                Document Status
-              </h3>
-
-              {documents.length ===
-              0 ? (
-                <div className="text-center py-4">
-
-                  <p className="text-sm text-[#D95B5B] font-medium">
-                    No documents uploaded
-                  </p>
-
-                  <button
-                    onClick={() =>
-                      setActiveTab(
-                        'documents'
-                      )
-                    }
-                    className="mt-2 text-xs text-[#5B6FD4] font-medium hover:underline"
-                  >
-                    Upload now →
-                  </button>
-
-                </div>
-              ) : (
-                <div className="space-y-2">
-
-                  {documents.map(
-                    (
-                      doc
-                    ) => (
-                      <div
-                        key={
-                          doc._id
-                        }
-                        className="flex items-center justify-between text-sm gap-3"
-                      >
-
-                        <span className="text-[#5A5A72] truncate">
-                          {doc.name ||
-                            doc.originalName ||
-                            'Document'}
-                        </span>
-
-                        <span
-                          className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${
-                            doc.status ===
-                            'approved'
-                              ? 'bg-[#E6F4F1] text-[#3D9E8C]'
-                              : doc.status ===
-                                'rejected'
-                              ? 'bg-[#FDECEC] text-[#D95B5B]'
-                              : 'bg-[#FEF3ED] text-[#E8824A]'
-                          }`}
-                        >
-                          {doc.status ===
-                          'approved'
-                            ? 'Approved'
-                            : doc.status ===
-                              'rejected'
-                            ? 'Rejected'
-                            : 'Pending Review'}
-                        </span>
-
-                      </div>
-                    )
-                  )}
-
-                </div>
-              )}
-
-            </div> */}
-
-            {/* Latest Announcement */}
-
-            {latestAnnouncement && (
+            {event.modules?.announcements !== false && latestAnnouncement && (
               <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-5">
 
                 <div className="flex items-center justify-between mb-3">
@@ -2992,13 +2457,13 @@ export default function ParticipantDashboard({
               </div>
             )}
 
-            {/* Chat CTA */}
 
-            <button
-              onClick={() =>
-                setActiveTab(
-                  'chat'
-                )
+            {event.modules?.chat !== false && (
+              <button
+                onClick={() =>
+                  setActiveTab(
+                    'chat'
+                  )
               }
               className="w-full gradient-teal text-white rounded-2xl p-5 flex items-center gap-4 hover:opacity-90 transition-opacity text-left shadow-card"
             >
@@ -3038,47 +2503,20 @@ export default function ParticipantDashboard({
                 →
               </span>
 
-            </button>
+              </button>
+            )}
 
           </div>
         )}
 
-        {/* ===================================================
-            DOCUMENTS
-        ==================================================== */}
 
-        {activeTab ===
-          'documents' && (
+        {event.modules?.documents !== false &&
+          activeTab ===
+            'documents' && (
           <div className="space-y-4">
 
-            {/* Document information */}
 
-            {/* <div className="bg-[#EEF2FF] border border-[#D9DEFA] rounded-2xl p-4 flex gap-3">
 
-              <span className="text-[#5B6FD4]">
-                ℹ
-              </span>
-
-              <div>
-
-                <p className="text-sm font-medium text-[#5B6FD4]">
-                  Document Submission
-                </p>
-
-                <p className="text-xs text-[#5A5A72] mt-1">
-                  Upload the documents requested
-                  by your event administrator.
-                  Supported formats are PDF,
-                  JPG and PNG, up to 10MB.
-                </p>
-
-              </div>
-
-            </div> */}
-
-            {/* =================================================
-                REQUESTED DOCUMENTS
-            ================================================== */}
 
             <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-5">
 
@@ -3243,7 +2681,6 @@ export default function ParticipantDashboard({
 
                           </div>
 
-                          {/* Pending upload */}
 
                           {(isPending ||
                             isRejected) && (
@@ -3319,7 +2756,6 @@ export default function ParticipantDashboard({
                             </div>
                           )}
 
-                          {/* Submitted */}
 
                           {isSubmitted && (
                             <div className="mt-4 pt-4 border-t border-[#E8E8F0]">
@@ -3339,7 +2775,6 @@ export default function ParticipantDashboard({
                             </div>
                           )}
 
-                          {/* Approved */}
 
                           {isApproved && (
                             <div className="mt-4 pt-4 border-t border-[#E8E8F0]">
@@ -3369,9 +2804,6 @@ export default function ParticipantDashboard({
 
             </div>
 
-            {/* =================================================
-                EXISTING DOCUMENTS
-            ================================================== */}
 
             <div className="pt-2">
 
@@ -3411,7 +2843,6 @@ export default function ParticipantDashboard({
                       className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-5 flex items-center gap-4"
                     >
 
-                      {/* File icon */}
 
                       <div className="w-10 h-10 bg-[#EEF2FF] rounded-xl flex items-center justify-center shrink-0">
 
@@ -3431,7 +2862,6 @@ export default function ParticipantDashboard({
 
                       </div>
 
-                      {/* File information */}
 
                       <div className="flex-1 min-w-0">
 
@@ -3451,7 +2881,6 @@ export default function ParticipantDashboard({
 
                       </div>
 
-                      {/* Status */}
 
                       <span
                         className={`text-xs px-2.5 py-1 rounded-full font-medium shrink-0 ${
@@ -3473,7 +2902,6 @@ export default function ParticipantDashboard({
                           : 'Pending Review'}
                       </span>
 
-                      {/* Download */}
 
                       <button
                         onClick={() =>
@@ -3519,81 +2947,15 @@ export default function ParticipantDashboard({
               </div>
             )}
 
-            {/* =================================================
-                GENERIC UPLOAD
-            ================================================== */}
 
-            {/* <div className="pt-2">
-
-              <h3 className="font-semibold text-[#1A1A2E] mb-3">
-                Upload Other Document
-              </h3>
-
-            </div> */}
-{/* 
-            <label
-              className={`w-full border-2 border-dashed border-[#D0D0E8] rounded-2xl p-8 text-center hover:border-[#5B6FD4] transition-colors bg-white block ${
-                uploading
-                  ? 'opacity-60 cursor-not-allowed'
-                  : 'cursor-pointer'
-              }`}
-            >
-
-              <input
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
-                className="hidden"
-                disabled={
-                  uploading
-                }
-                onChange={
-                  handleFileChange
-                }
-              />
-
-              <div className="w-10 h-10 bg-[#EEF2FF] rounded-xl flex items-center justify-center mx-auto mb-2">
-
-                {uploading ? (
-                  <div className="w-5 h-5 border-2 border-[#D0D0E8] border-t-[#5B6FD4] rounded-full animate-spin" />
-                ) : (
-                  <svg
-                    className="w-5 h-5 text-[#5B6FD4]"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 4v16m8-8H4"
-                    />
-                  </svg>
-                )}
-
-              </div>
-
-              <p className="text-sm font-medium text-[#1A1A2E]">
-                {uploading
-                  ? 'Uploading...'
-                  : 'Upload a document'}
-              </p>
-
-              <p className="text-xs text-[#9090A8] mt-0.5">
-                PDF, JPG, PNG up to 10MB
-              </p>
-
-            </label> */}
 
           </div>
         )}
 
-        {/* ===================================================
-            ANNOUNCEMENTS
-        ==================================================== */}
 
-        {activeTab ===
-          'announcements' && (
+        {event.modules?.announcements !== false &&
+          activeTab ===
+            'announcements' && (
           <div className="space-y-4">
 
             {announcements.length ===
@@ -3697,12 +3059,10 @@ export default function ParticipantDashboard({
           </div>
         )}
 
-        {/* ===================================================
-            CHAT
-        ==================================================== */}
 
-        {activeTab ===
-          'chat' && (
+        {event.modules?.chat !== false &&
+          activeTab ===
+            'chat' && (
           <div
             className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft overflow-hidden flex flex-col"
             style={{
@@ -3711,7 +3071,6 @@ export default function ParticipantDashboard({
             }}
           >
 
-            {/* Chat header */}
 
             <div className="px-5 py-4 border-b border-[#E8E8F0] flex items-center gap-3">
 
@@ -3762,7 +3121,6 @@ export default function ParticipantDashboard({
 
             </div>
 
-            {/* Messages */}
 
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
 
@@ -3899,7 +3257,6 @@ export default function ParticipantDashboard({
 
             </div>
 
-            {/* Message input */}
 
             <div className="p-4 border-t border-[#E8E8F0]">
 
