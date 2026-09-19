@@ -34,14 +34,10 @@ type View =
   | "chat"
   | "participant-dashboard";
 
-const VIEW_STORAGE_KEY =
-  "eventflow_current_view";
-
-const PARTICIPANT_ID_STORAGE_KEY =
-  "eventflow_selected_participant_id";
-
-const SELECTED_EVENT_KEY =
-  "eventflow_selected_event";
+const VIEW_STORAGE_KEY = "eventflow_current_view";
+const PARTICIPANT_ID_STORAGE_KEY = "eventflow_selected_participant_id";
+const SELECTED_EVENT_KEY = "eventflow_selected_event";
+const INVITATION_TOKEN_KEY = "eventflow_invitation_token";
 
 const validViews: View[] = [
   "landing",
@@ -70,45 +66,26 @@ const adminViews: View[] = [
 ];
 
 const getInitialView = (): View => {
-  const token =
-    localStorage.getItem("token");
-
-  const userString =
-    localStorage.getItem("user");
-
-  const savedView =
-    sessionStorage.getItem(
-      VIEW_STORAGE_KEY
-    ) as View | null;
+  const token = localStorage.getItem("token");
+  const userString = localStorage.getItem("user");
+  const savedView = sessionStorage.getItem(VIEW_STORAGE_KEY) as View | null;
 
   if (!token || !userString) {
     return "landing";
   }
 
-  if (
-    !savedView ||
-    !validViews.includes(savedView)
-  ) {
+  if (!savedView || !validViews.includes(savedView)) {
     return "landing";
   }
 
   try {
-    const user = JSON.parse(
-      userString
-    );
+    const user = JSON.parse(userString);
 
-    if (
-      user.role === "admin" &&
-      savedView ===
-        "participant-dashboard"
-    ) {
+    if (user.role === "admin" && savedView === "participant-dashboard") {
       return "admin-dashboard";
     }
 
-    if (
-      user.role === "participant" &&
-      adminViews.includes(savedView)
-    ) {
+    if (user.role === "participant" && adminViews.includes(savedView)) {
       return "participant-dashboard";
     }
 
@@ -118,72 +95,44 @@ const getInitialView = (): View => {
   }
 };
 
-const getInitialSelectedEvent =
-  (): Event | null => {
-    const storedEvent =
-      sessionStorage.getItem(
-        SELECTED_EVENT_KEY
-      );
+const getInitialSelectedEvent = (): Event | null => {
+  const storedEvent = sessionStorage.getItem(SELECTED_EVENT_KEY);
 
-    if (!storedEvent) {
-      return null;
-    }
+  if (!storedEvent) {
+    return null;
+  }
 
-    try {
-      return JSON.parse(
-        storedEvent
-      ) as Event;
-    } catch {
-      sessionStorage.removeItem(
-        SELECTED_EVENT_KEY
-      );
-
-      return null;
-    }
-  };
+  try {
+    return JSON.parse(storedEvent) as Event;
+  } catch {
+    sessionStorage.removeItem(SELECTED_EVENT_KEY);
+    return null;
+  }
+};
 
 export default function App() {
-  const [view, setView] =
-    useState<View>(getInitialView);
+  const [view, setView] = useState<View>(getInitialView);
 
-  const [
-    selectedParticipantId,
-    setSelectedParticipantId,
-  ] = useState<string | null>(() => {
-    return (
-      sessionStorage.getItem(
-        PARTICIPANT_ID_STORAGE_KEY
-      ) || null
-    );
+  const [selectedParticipantId, setSelectedParticipantId] = useState<
+    string | null
+  >(() => {
+    return sessionStorage.getItem(PARTICIPANT_ID_STORAGE_KEY) || null;
   });
 
-  const [
-    selectedEvent,
-    setSelectedEvent,
-  ] = useState<Event | null>(
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(
     getInitialSelectedEvent
   );
 
-  const searchParams =
-    new URLSearchParams(
-      window.location.search
-    );
-
-  const invitationToken =
-    searchParams.get("token") || "";
+  const searchParams = new URLSearchParams(window.location.search);
+  const invitationToken = searchParams.get("token") || "";
 
   useEffect(() => {
     if (view === "landing") {
-      sessionStorage.removeItem(
-        VIEW_STORAGE_KEY
-      );
+      sessionStorage.removeItem(VIEW_STORAGE_KEY);
       return;
     }
 
-    sessionStorage.setItem(
-      VIEW_STORAGE_KEY,
-      view
-    );
+    sessionStorage.setItem(VIEW_STORAGE_KEY, view);
   }, [view]);
 
   useEffect(() => {
@@ -193,9 +142,7 @@ export default function App() {
         selectedParticipantId
       );
     } else {
-      sessionStorage.removeItem(
-        PARTICIPANT_ID_STORAGE_KEY
-      );
+      sessionStorage.removeItem(PARTICIPANT_ID_STORAGE_KEY);
     }
   }, [selectedParticipantId]);
 
@@ -206,15 +153,13 @@ export default function App() {
         JSON.stringify(selectedEvent)
       );
     } else {
-      sessionStorage.removeItem(
-        SELECTED_EVENT_KEY
-      );
+      sessionStorage.removeItem(SELECTED_EVENT_KEY);
     }
   }, [selectedEvent]);
 
   if (invitationToken) {
     sessionStorage.setItem(
-      "eventflow_invitation_token",
+      INVITATION_TOKEN_KEY,
       invitationToken
     );
 
@@ -222,103 +167,53 @@ export default function App() {
       <AcceptInvitation
         token={invitationToken}
         onAccepted={() => {
-          window.history.replaceState(
-            {},
-            "",
-            "/"
-          );
+          window.history.replaceState({}, "", "/");
 
-          setView(
-            "participant-login"
-          );
+          setView("participant-dashboard");
         }}
       />
     );
   }
 
-  const goToLogin = (
-    role: "admin" | "participant"
-  ) => {
+  const goToLogin = (role: "admin" | "participant") => {
     if (role === "admin") {
       setView("login");
       return;
     }
 
-    setView(
-      "participant-login"
-    );
+    setView("participant-login");
   };
 
-  const handleLogin = (
-    role: "admin" | "participant"
-  ) => {
+  const handleLogin = (role: "admin" | "participant") => {
     if (role === "admin") {
-      setView(
-        "admin-dashboard"
-      );
+      setView("admin-dashboard");
       return;
     }
 
-    setView(
-      "participant-dashboard"
-    );
+    setView("participant-dashboard");
   };
 
   const handleLogout = () => {
-    setSelectedParticipantId(
-      null
-    );
-
+    setSelectedParticipantId(null);
     setSelectedEvent(null);
 
-    localStorage.removeItem(
-      "token"
-    );
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    localStorage.removeItem("eventflow_selected_event");
+    localStorage.removeItem("eventflow_participant_event");
 
-    localStorage.removeItem(
-      "user"
-    );
-
-    localStorage.removeItem(
-      "eventflow_selected_event"
-    );
-
-    localStorage.removeItem(
-      "eventflow_participant_event"
-    );
-
-    sessionStorage.removeItem(
-      VIEW_STORAGE_KEY
-    );
-
-    sessionStorage.removeItem(
-      PARTICIPANT_ID_STORAGE_KEY
-    );
-
-    sessionStorage.removeItem(
-      SELECTED_EVENT_KEY
-    );
-
-    sessionStorage.removeItem(
-      "eventflow_invitation_token"
-    );
+    sessionStorage.removeItem(VIEW_STORAGE_KEY);
+    sessionStorage.removeItem(PARTICIPANT_ID_STORAGE_KEY);
+    sessionStorage.removeItem(SELECTED_EVENT_KEY);
+    sessionStorage.removeItem(INVITATION_TOKEN_KEY);
 
     setView("landing");
   };
 
-  const adminNavigate = (
-    page: string,
-    id?: string
-  ) => {
+  const adminNavigate = (page: string, id?: string) => {
     if (page === "dashboard") {
-      setSelectedParticipantId(
-        null
-      );
-
-      setView(
-        "admin-dashboard"
-      );
-
+      setSelectedParticipantId(null);
+      setView("admin-dashboard");
       return;
     }
 
@@ -327,17 +222,9 @@ export default function App() {
       return;
     }
 
-    if (
-      page ===
-        "participant-profile" &&
-      id
-    ) {
+    if (page === "participant-profile" && id) {
       setSelectedParticipantId(id);
-
-      setView(
-        "participant-profile"
-      );
-
+      setView("participant-profile");
       return;
     }
 
@@ -360,39 +247,26 @@ export default function App() {
   };
 
   if (view === "landing") {
-    return (
-      <Landing
-        onLogin={goToLogin}
-      />
-    );
+    return <Landing onLogin={goToLogin} />;
   }
 
   if (view === "login") {
     return (
       <Login
         onLogin={handleLogin}
-        onBack={() =>
-          setView("landing")
-        }
+        onBack={() => setView("landing")}
       />
     );
   }
 
-  if (
-    view ===
-    "participant-login"
-  ) {
+  if (view === "participant-login") {
     const storedInvitationToken =
-      sessionStorage.getItem(
-        "eventflow_invitation_token"
-      ) || "";
+      sessionStorage.getItem(INVITATION_TOKEN_KEY) || "";
 
     return (
       <ParticipantLogin
         onLogin={handleLogin}
-        onBack={() =>
-          setView("landing")
-        }
+        onBack={() => setView("landing")}
         invitationToken={
           invitationToken ||
           storedInvitationToken ||
@@ -402,10 +276,7 @@ export default function App() {
     );
   }
 
-  if (
-    view ===
-    "participant-dashboard"
-  ) {
+  if (view === "participant-dashboard") {
     return (
       <ParticipantDashboard
         onLogout={handleLogout}
@@ -414,89 +285,61 @@ export default function App() {
   }
 
   const adminPageId =
-    view ===
-    "admin-dashboard"
+    view === "admin-dashboard"
       ? "dashboard"
       : view;
 
   return (
     <AdminLayout
-      currentPage={
-        adminPageId
-      }
-      onNavigate={
-        adminNavigate
-      }
-      onLogout={
-        handleLogout
-      }
+      currentPage={adminPageId}
+      onNavigate={adminNavigate}
+      onLogout={handleLogout}
       eventName={
         selectedEvent?.name ||
         "No event selected"
       }
     >
-      {view ===
-        "admin-dashboard" && (
+      {view === "admin-dashboard" && (
         <AdminDashboard
-          onNavigate={
-            adminNavigate
-          }
-          selectedEvent={
-            selectedEvent
-          }
-          onEventChange={
-            setSelectedEvent
-          }
+          onNavigate={adminNavigate}
+          selectedEvent={selectedEvent}
+          onEventChange={setSelectedEvent}
         />
       )}
 
-      {view ===
-        "event-builder" && (
+      {view === "event-builder" && (
         <EventBuilder
-          onNavigate={
-            adminNavigate
-          }
+          onNavigate={adminNavigate}
         />
       )}
 
-      {view ===
-        "participants" && (
+      {view === "participants" && (
         <Participants />
       )}
 
-      {view ===
-          "participant-profile" &&
+      {view === "participant-profile" &&
         selectedParticipantId && (
           <ParticipantProfile
-            participantId={
-              selectedParticipantId
-            }
+            participantId={selectedParticipantId}
             onBack={() =>
-              setView(
-                "participants"
-              )
+              setView("participants")
             }
           />
         )}
 
-      {view ===
-        "invitations" && (
+      {view === "invitations" && (
         <Invitations />
       )}
 
-      {view ===
-        "announcements" && (
+      {view === "announcements" && (
         <Announcements />
       )}
 
-      {view ===
-        "documents" && (
+      {view === "documents" && (
         <Documents />
       )}
 
-      {view === "chat" && (
-        <Chat />
-      )}
+      {view === "chat" && <Chat />}
     </AdminLayout>
   );
 }
