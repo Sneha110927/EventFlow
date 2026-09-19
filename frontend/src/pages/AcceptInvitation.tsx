@@ -24,7 +24,10 @@ interface AcceptInvitationProps {
 }
 
 const API_BASE_URL =
-  "https://event-flow-nine.vercel.app/api";
+  window.location.hostname === "localhost" ||
+  window.location.hostname === "127.0.0.1"
+    ? "http://localhost:5000/api"
+    : "https://event-flow-nine.vercel.app";
 
 export default function AcceptInvitation({
   token,

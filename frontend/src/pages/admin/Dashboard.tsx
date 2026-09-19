@@ -92,9 +92,7 @@ export default function AdminDashboard({
     useState<Event[]>([]);
 
   const [participants, setParticipants] =
-    useState<EventParticipant[]>(
-      []
-    );
+    useState<EventParticipant[]>([]);
 
   const [loading, setLoading] =
     useState(true);
@@ -103,6 +101,12 @@ export default function AdminDashboard({
     participantsLoading,
     setParticipantsLoading,
   ] = useState(false);
+
+  const [deletingEventId, setDeletingEventId] =
+    useState<string | null>(null);
+
+  const [eventToDelete, setEventToDelete] =
+    useState<Event | null>(null);
 
   const [error, setError] =
     useState("");
@@ -266,6 +270,100 @@ export default function AdminDashboard({
 
     void fetchParticipants();
   }, [selectedEvent]);
+
+  const handleDeleteEvent = async (
+    event: Event
+  ) => {
+    try {
+      setDeletingEventId(
+        event._id
+      );
+
+      setError("");
+
+      const token =
+        localStorage.getItem(
+          "token"
+        );
+
+      if (!token) {
+        throw new Error(
+          "You are not logged in."
+        );
+      }
+
+      const response =
+        await fetch(
+          `${API_BASE_URL}/events/${event._id}`,
+          {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Failed to delete event."
+        );
+      }
+
+      const remainingEvents =
+        events.filter(
+          (item) =>
+            item._id !==
+            event._id
+        );
+
+      setEvents(
+        remainingEvents
+      );
+
+      if (
+        selectedEvent?._id ===
+        event._id
+      ) {
+        if (
+          remainingEvents.length >
+          0
+        ) {
+          onEventChange(
+            remainingEvents[0]
+          );
+        } else {
+          onEventChange(null);
+        }
+      }
+
+      setEventToDelete(null);
+    } catch (err) {
+      console.error(
+        "Failed to delete event:",
+        err
+      );
+
+      if (
+        err instanceof Error
+      ) {
+        setError(
+          err.message
+        );
+      } else {
+        setError(
+          "Failed to delete event."
+        );
+      }
+    } finally {
+      setDeletingEventId(
+        null
+      );
+    }
+  };
 
   const registered =
     participants.length;
@@ -681,6 +779,10 @@ export default function AdminDashboard({
                   <th className="text-left px-6 py-3">
                     Venue
                   </th>
+
+                  <th className="text-right px-6 py-3">
+                    Actions
+                  </th>
                 </tr>
               </thead>
 
@@ -696,7 +798,7 @@ export default function AdminDashboard({
                           event
                         )
                       }
-                      className={`hover:bg-[#FAFAF7] transition-colors cursor-pointer ${
+                      className={`hover:bg-[#FAFAF7] transition-colors ${
                         selectedEvent?._id ===
                         event._id
                           ? "bg-[#FAFAF7]"
@@ -737,6 +839,44 @@ export default function AdminDashboard({
                         {event.location ||
                           "Not set"}
                       </td>
+
+                      <td
+                        className="px-6 py-3.5 text-right"
+                        onClick={(e) =>
+                          e.stopPropagation()
+                        }
+                      >
+                        <button
+                          onClick={() =>
+                            setEventToDelete(
+                              event
+                            )
+                          }
+                          disabled={
+                            deletingEventId ===
+                            event._id
+                          }
+                          title="Delete event"
+                          aria-label={`Delete ${event.name}`}
+                          className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-red-500 bg-red-50 hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M3 6h18" />
+                            <path d="M8 6V4h8v2" />
+                            <path d="M19 6l-1 14H6L5 6" />
+                            <path d="M10 11v5" />
+                            <path d="M14 11v5" />
+                          </svg>
+                        </button>
+                      </td>
                     </tr>
                   )
                 )}
@@ -745,6 +885,89 @@ export default function AdminDashboard({
           </div>
         )}
       </div>
+
+      {eventToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+            onClick={() => {
+              if (!deletingEventId) {
+                setEventToDelete(null);
+              }
+            }}
+          />
+
+          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-[#E8E8F0] p-6">
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0 w-11 h-11 rounded-full bg-red-50 flex items-center justify-center">
+                <svg
+                  className="w-5 h-5 text-red-500"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M3 6h18" />
+                  <path d="M8 6V4h8v2" />
+                  <path d="M19 6l-1 14H6L5 6" />
+                  <path d="M10 11v5" />
+                  <path d="M14 11v5" />
+                </svg>
+              </div>
+
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-[#1A1A2E]">
+                  Delete Event?
+                </h3>
+
+                <p className="text-sm text-[#5A5A72] mt-2 leading-6">
+                  Are you sure you want to delete{" "}
+                  <span className="font-semibold text-[#1A1A2E]">
+                    "{eventToDelete.name}"
+                  </span>
+                  ?
+                </p>
+
+                <p className="text-xs text-[#9090A8] mt-2">
+                  This action cannot be undone.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-7">
+              <button
+                onClick={() =>
+                  setEventToDelete(null)
+                }
+                disabled={
+                  !!deletingEventId
+                }
+                className="px-4 py-2.5 rounded-xl border border-[#E8E8F0] text-sm font-medium text-[#5A5A72] hover:bg-[#FAFAF7] transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={() =>
+                  void handleDeleteEvent(
+                    eventToDelete
+                  )
+                }
+                disabled={
+                  !!deletingEventId
+                }
+                className="px-4 py-2.5 rounded-xl bg-red-500 text-white text-sm font-medium hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {deletingEventId
+                  ? "Deleting..."
+                  : "Delete Event"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
