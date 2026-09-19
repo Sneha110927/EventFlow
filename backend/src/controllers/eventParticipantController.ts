@@ -2,7 +2,6 @@ import { Response } from "express";
 
 import EventParticipant from "../models/EventParticipant";
 import Event from "../models/Event";
-import User from "../models/User";
 import { AuthRequest } from "../middleware/authMiddleware";
 
 export const getAllEventParticipants = async (
@@ -35,8 +34,14 @@ export const getAllEventParticipants = async (
         createdAt: -1,
       });
 
+    const validParticipants = participants.filter(
+      (participant) =>
+        participant.user !== null &&
+        participant.event !== null
+    );
+
     return res.status(200).json({
-      participants,
+      participants: validParticipants,
     });
   } catch (error) {
     console.error(
@@ -94,6 +99,10 @@ export const getEventParticipants = async (
         createdAt: -1,
       });
 
+    const validParticipants = participants.filter(
+      (participant) => participant.user !== null
+    );
+
     return res.status(200).json({
       event: {
         id: event._id,
@@ -106,7 +115,7 @@ export const getEventParticipants = async (
         meetingLink: event.meetingLink,
         modules: event.modules,
       },
-      participants,
+      participants: validParticipants,
     });
   } catch (error) {
     console.error(
@@ -130,11 +139,13 @@ export const getMyEvents = async (
         message: "Authentication required",
       });
     }
-    const eventParticipants = await EventParticipant.find({
-      user: req.user.userId,
-    }).sort({
-      createdAt: -1,
-    });
+
+    const eventParticipants =
+      await EventParticipant.find({
+        user: req.user.userId,
+      }).sort({
+        createdAt: -1,
+      });
 
     const events = await Promise.all(
       eventParticipants.map(async (participant) => {
@@ -161,24 +172,72 @@ export const getMyEvents = async (
       })
     );
 
-    console.log(
-      "========== PARTICIPANT EVENTS =========="
-    );
-
-    console.log(
-      JSON.stringify(events, null, 2)
-    );
-
-    console.log(
-      "=========================================" 
+    const validEvents = events.filter(
+      (item) => item.event !== null
     );
 
     return res.status(200).json({
-      events,
+      events: validEvents,
     });
   } catch (error) {
     console.error(
       "Get my events error:",
+      error
+    );
+
+    return res.status(500).json({
+      message: "Server error",
+    });
+  }
+};
+
+export const deleteEventParticipant = async (
+  req: AuthRequest,
+  res: Response
+) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        message: "Authentication required",
+      });
+    }
+
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
+        message: "Only admins can remove participants",
+      });
+    }
+
+    const { participantId } = req.params;
+
+    if (!participantId) {
+      return res.status(400).json({
+        message: "Participant ID is required",
+      });
+    }
+
+    const participant =
+      await EventParticipant.findById(
+        participantId
+      );
+
+    if (!participant) {
+      return res.status(404).json({
+        message: "Participant not found",
+      });
+    }
+
+    await EventParticipant.findByIdAndDelete(
+      participantId
+    );
+
+    return res.status(200).json({
+      message:
+        "Participant removed from the event successfully",
+    });
+  } catch (error) {
+    console.error(
+      "Delete event participant error:",
       error
     );
 

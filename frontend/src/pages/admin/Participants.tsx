@@ -38,18 +38,27 @@ interface InvitationResponse {
   message?: string;
 }
 
-export default function Participants() {
-  // =========================================================
-  // STATE
-  // =========================================================
+const API_BASE_URL =
+  window.location.hostname === "localhost" ||
+  window.location.hostname === "127.0.0.1"
+    ? "http://localhost:5000/api"
+    : "https://event-flow-nine.vercel.app";
 
-  const [participants, setParticipants] = useState<Participant[]>([]);
-  const [events, setEvents] = useState<EventItem[]>([]);
+export default function Participants() {
+  const [participants, setParticipants] = useState<
+    Participant[]
+  >([]);
+
+  const [events, setEvents] = useState<EventItem[]>(
+    []
+  );
 
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] =
+    useState("all");
 
-  const [showInviteForm, setShowInviteForm] = useState(false);
+  const [showInviteForm, setShowInviteForm] =
+    useState(false);
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -57,77 +66,79 @@ export default function Participants() {
 
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [deletingId, setDeletingId] =
+    useState<string | null>(null);
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  // =========================================================
-  // GET ACTUAL PARTICIPANTS
-  // =========================================================
+  const fetchParticipants =
+    async (): Promise<Participant[]> => {
+      const token =
+        localStorage.getItem("token");
 
-  const fetchParticipants = async (): Promise<Participant[]> => {
-    const token = localStorage.getItem("token");
-
-    if (!token) {
-      throw new Error("You are not logged in.");
-    }
-
-    const response = await fetch(
-      "https://event-flow-nine.vercel.app/api/event-participants",
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      if (!token) {
+        throw new Error(
+          "You are not logged in."
+        );
       }
-    );
 
-    const data: ParticipantsResponse = await response.json();
-
-    if (!response.ok) {
-      throw new Error(
-        data.message || "Failed to load participants"
+      const response = await fetch(
+        `${API_BASE_URL}/event-participants`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
       );
-    }
 
-    return data.participants || [];
-  };
+      const data: ParticipantsResponse =
+        await response.json();
 
-  // =========================================================
-  // GET EVENTS
-  // =========================================================
-
-  const fetchEvents = async (): Promise<EventItem[]> => {
-    const token = localStorage.getItem("token");
-
-    if (!token) {
-      throw new Error("You are not logged in.");
-    }
-
-    const response = await fetch(
-      "https://event-flow-nine.vercel.app/api/events",
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Failed to load participants"
+        );
       }
-    );
 
-    const data: EventsResponse = await response.json();
+      return data.participants || [];
+    };
 
-    if (!response.ok) {
-      throw new Error(
-        data.message || "Failed to load events"
+  const fetchEvents =
+    async (): Promise<EventItem[]> => {
+      const token =
+        localStorage.getItem("token");
+
+      if (!token) {
+        throw new Error(
+          "You are not logged in."
+        );
+      }
+
+      const response = await fetch(
+        `${API_BASE_URL}/events`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
       );
-    }
 
-    return data.events || [];
-  };
+      const data: EventsResponse =
+        await response.json();
 
-  // =========================================================
-  // LOAD DATA
-  // =========================================================
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Failed to load events"
+        );
+      }
+
+      return data.events || [];
+    };
 
   useEffect(() => {
     const loadData = async () => {
@@ -135,11 +146,13 @@ export default function Participants() {
         setLoading(true);
         setError("");
 
-        const [participantData, eventData] =
-          await Promise.all([
-            fetchParticipants(),
-            fetchEvents(),
-          ]);
+        const [
+          participantData,
+          eventData,
+        ] = await Promise.all([
+          fetchParticipants(),
+          fetchEvents(),
+        ]);
 
         setParticipants(participantData);
         setEvents(eventData);
@@ -162,10 +175,6 @@ export default function Participants() {
     void loadData();
   }, []);
 
-  // =========================================================
-  // CREATE INVITATION
-  // =========================================================
-
   const handleInvite = async (
     e: React.FormEvent<HTMLFormElement>
   ) => {
@@ -179,14 +188,17 @@ export default function Participants() {
       !email.trim() ||
       !eventId
     ) {
-      setError("Please fill in all fields.");
+      setError(
+        "Please fill in all fields."
+      );
       return;
     }
 
     try {
       setSending(true);
 
-      const token = localStorage.getItem("token");
+      const token =
+        localStorage.getItem("token");
 
       if (!token) {
         throw new Error(
@@ -195,7 +207,7 @@ export default function Participants() {
       }
 
       const response = await fetch(
-        "https://event-flow-nine.vercel.app/api/invitations",
+        `${API_BASE_URL}/invitations`,
         {
           method: "POST",
           headers: {
@@ -227,19 +239,7 @@ export default function Participants() {
       setName("");
       setEmail("");
       setEventId("");
-
       setShowInviteForm(false);
-
-      /*
-       * IMPORTANT:
-       *
-       * We DO NOT add the invited person
-       * to the participant list here.
-       *
-       * They will appear in Participants only
-       * after they accept the invitation and
-       * EventParticipant is created.
-       */
     } catch (err: unknown) {
       console.error(
         "Invitation error:",
@@ -256,13 +256,82 @@ export default function Participants() {
     }
   };
 
-  // =========================================================
-  // FILTER PARTICIPANTS
-  // =========================================================
+  const handleDeleteParticipant =
+    async (participantId: string) => {
+      const confirmed = window.confirm(
+        "Are you sure you want to remove this participant from the event?"
+      );
 
-  const filtered = participants.filter(
-    (participant) => {
-      const query = search.toLowerCase();
+      if (!confirmed) {
+        return;
+      }
+
+      try {
+        setDeletingId(participantId);
+        setError("");
+        setMessage("");
+
+        const token =
+          localStorage.getItem("token");
+
+        if (!token) {
+          throw new Error(
+            "You are not logged in."
+          );
+        }
+
+        const response = await fetch(
+          `${API_BASE_URL}/event-participants/${participantId}`,
+          {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const data: {
+          message?: string;
+        } = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message ||
+              "Failed to remove participant"
+          );
+        }
+
+        setParticipants((previous) =>
+          previous.filter(
+            (participant) =>
+              participant._id !==
+              participantId
+          )
+        );
+
+        setMessage(
+          "Participant removed successfully."
+        );
+      } catch (err: unknown) {
+        console.error(
+          "Delete participant error:",
+          err
+        );
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to remove participant"
+        );
+      } finally {
+        setDeletingId(null);
+      }
+    };
+
+  const filtered =
+    participants.filter((participant) => {
+      const query =
+        search.toLowerCase();
 
       const participantName =
         participant.user?.name?.toLowerCase() ||
@@ -285,12 +354,7 @@ export default function Participants() {
         matchesSearch &&
         matchesStatus
       );
-    }
-  );
-
-  // =========================================================
-  // STATUS BADGE
-  // =========================================================
+    });
 
   const getStatusBadge = (
     status: Participant["status"]
@@ -318,15 +382,8 @@ export default function Participants() {
     );
   };
 
-  // =========================================================
-  // PAGE
-  // =========================================================
-
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
-
-      {/* HEADER */}
-
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div>
           <h2 className="font-display text-2xl text-[#1A1A2E]">
@@ -355,19 +412,14 @@ export default function Participants() {
         </button>
       </div>
 
-      {/* SUCCESS MESSAGE */}
-
       {message && (
         <div className="bg-green-50 border border-green-200 text-green-700 rounded-xl p-4 text-sm">
           {message}
         </div>
       )}
 
-      {/* INVITE FORM */}
-
       {showInviteForm && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-
           <h3 className="font-semibold text-lg text-[#1A1A2E] mb-5">
             Invite a Participant
           </h3>
@@ -376,9 +428,6 @@ export default function Participants() {
             onSubmit={handleInvite}
             className="space-y-4"
           >
-
-            {/* NAME */}
-
             <div>
               <label className="block text-sm font-medium text-[#1A1A2E] mb-1.5">
                 Participant Name
@@ -395,8 +444,6 @@ export default function Participants() {
               />
             </div>
 
-            {/* EMAIL */}
-
             <div>
               <label className="block text-sm font-medium text-[#1A1A2E] mb-1.5">
                 Email Address
@@ -412,8 +459,6 @@ export default function Participants() {
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#6276E8]"
               />
             </div>
-
-            {/* EVENT */}
 
             <div>
               <label className="block text-sm font-medium text-[#1A1A2E] mb-1.5">
@@ -442,15 +487,11 @@ export default function Participants() {
               </select>
             </div>
 
-            {/* ERROR */}
-
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-600 rounded-xl p-3 text-sm">
                 {error}
               </div>
             )}
-
-            {/* SUBMIT */}
 
             <button
               type="submit"
@@ -461,15 +502,11 @@ export default function Participants() {
                 ? "Sending..."
                 : "Send Invitation"}
             </button>
-
           </form>
         </div>
       )}
 
-      {/* SEARCH + FILTER */}
-
       <div className="flex flex-col sm:flex-row gap-3">
-
         <input
           type="text"
           placeholder="Search by name or email..."
@@ -481,7 +518,6 @@ export default function Participants() {
         />
 
         <div className="flex gap-2 flex-wrap">
-
           <button
             onClick={() =>
               setStatusFilter("all")
@@ -533,19 +569,14 @@ export default function Participants() {
           >
             Pending
           </button>
-
         </div>
       </div>
-
-      {/* ERROR */}
 
       {error && !showInviteForm && (
         <div className="bg-red-50 border border-red-200 text-red-600 rounded-xl p-4 text-sm">
           {error}
         </div>
       )}
-
-      {/* LOADING */}
 
       {loading ? (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center">
@@ -554,18 +585,11 @@ export default function Participants() {
           </p>
         </div>
       ) : (
-
-        /* TABLE */
-
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-
           <div className="overflow-x-auto">
-
             <table className="w-full">
-
               <thead>
                 <tr className="border-b border-gray-100">
-
                   <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500">
                     PARTICIPANT
                   </th>
@@ -590,38 +614,31 @@ export default function Participants() {
                     JOINED
                   </th>
 
+                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500">
+                    ACTION
+                  </th>
                 </tr>
               </thead>
 
               <tbody>
-
                 {filtered.length === 0 ? (
-
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={7}
                       className="text-center py-12 text-gray-400"
                     >
                       No participants found.
                     </td>
                   </tr>
-
                 ) : (
-
                   filtered.map(
                     (participant) => (
-
                       <tr
                         key={participant._id}
                         className="border-b border-gray-100 hover:bg-gray-50"
                       >
-
-                        {/* PARTICIPANT */}
-
                         <td className="px-6 py-5">
-
                           <div className="flex items-center gap-3">
-
                             <div className="w-10 h-10 rounded-full bg-[#6276E8] text-white flex items-center justify-center font-semibold">
                               {participant.user?.name
                                 ?.charAt(0)
@@ -630,7 +647,6 @@ export default function Participants() {
                             </div>
 
                             <div>
-
                               <p className="font-semibold text-[#1A1A2E]">
                                 {participant.user
                                   ?.name ||
@@ -639,20 +655,13 @@ export default function Participants() {
 
                               <p className="text-sm text-gray-400">
                                 {participant.user
-                                  ?.email ||
-                                  ""}
+                                  ?.email || ""}
                               </p>
-
                             </div>
-
                           </div>
-
                         </td>
 
-                        {/* EVENT */}
-
                         <td className="px-6 py-5">
-
                           <p className="font-medium text-[#1A1A2E]">
                             {participant.event
                               ?.name ||
@@ -661,56 +670,35 @@ export default function Participants() {
 
                           <p className="text-sm text-gray-400">
                             {participant.event
-                              ?.type ||
-                              ""}
+                              ?.type || ""}
                           </p>
-
                         </td>
 
-                        {/* REGISTRATION */}
-
                         <td className="px-6 py-5">
-
                           {participant.registrationCompleted ? (
-
                             <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
                               Completed
                             </span>
-
                           ) : (
-
                             <span className="px-3 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-600">
                               Pending
                             </span>
-
                           )}
-
                         </td>
 
-                        {/* INVITATION */}
-
                         <td className="px-6 py-5">
-
                           {getStatusBadge(
                             participant.status
                           )}
-
                         </td>
 
-                        {/* DOCUMENTS */}
-
                         <td className="px-6 py-5">
-
                           <span className="px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-600">
                             Missing
                           </span>
-
                         </td>
 
-                        {/* JOINED */}
-
                         <td className="px-6 py-5 text-sm text-gray-500">
-
                           {participant.joinedAt
                             ? new Date(
                                 participant.joinedAt
@@ -718,26 +706,37 @@ export default function Participants() {
                             : new Date(
                                 participant.createdAt
                               ).toLocaleDateString()}
-
                         </td>
 
+                        <td className="px-6 py-5">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void handleDeleteParticipant(
+                                participant._id
+                              )
+                            }
+                            disabled={
+                              deletingId ===
+                              participant._id
+                            }
+                            className="px-3 py-2 rounded-lg bg-red-50 text-red-600 text-sm font-semibold hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {deletingId ===
+                            participant._id
+                              ? "Removing..."
+                              : "Remove"}
+                          </button>
+                        </td>
                       </tr>
-
                     )
                   )
-
                 )}
-
               </tbody>
-
             </table>
-
           </div>
-
         </div>
-
       )}
-
     </div>
   );
 }
