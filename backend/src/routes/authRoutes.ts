@@ -2,6 +2,7 @@ import { Router } from "express";
 
 import {
   register,
+  registerAdmin,
   sendAdminLoginOTP,
   verifyAdminLoginOTP,
   sendParticipantLoginOTP,
@@ -15,12 +16,15 @@ router.post(
   register
 );
 
+router.post(
+  "/admin/register",
+  registerAdmin
+);
 
 router.post(
   "/admin/send-otp",
   sendAdminLoginOTP
 );
-
 
 router.post(
   "/admin/verify-otp",

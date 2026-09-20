@@ -28,7 +28,7 @@ export const getAllEventParticipants = async (
       )
       .populate(
         "event",
-        "name type description startDate endDate location meetingLink modules"
+        "name type description startDate endDate location modules"
       )
       .sort({
         createdAt: -1,
@@ -68,7 +68,8 @@ export const getEventParticipants = async (
 
     if (req.user.role !== "admin") {
       return res.status(403).json({
-        message: "Only admins can view event participants",
+        message:
+          "Only admins can view event participants",
       });
     }
 
@@ -88,20 +89,23 @@ export const getEventParticipants = async (
       });
     }
 
-    const participants = await EventParticipant.find({
-      event: eventId,
-    })
-      .populate(
-        "user",
-        "name email role createdAt"
-      )
-      .sort({
-        createdAt: -1,
-      });
+    const participants =
+      await EventParticipant.find({
+        event: eventId,
+      })
+        .populate(
+          "user",
+          "name email role createdAt"
+        )
+        .sort({
+          createdAt: -1,
+        });
 
-    const validParticipants = participants.filter(
-      (participant) => participant.user !== null
-    );
+    const validParticipants =
+      participants.filter(
+        (participant) =>
+          participant.user !== null
+      );
 
     return res.status(200).json({
       event: {
@@ -112,7 +116,6 @@ export const getEventParticipants = async (
         startDate: event.startDate,
         endDate: event.endDate,
         location: event.location,
-        meetingLink: event.meetingLink,
         modules: event.modules,
       },
       participants: validParticipants,
@@ -148,28 +151,35 @@ export const getMyEvents = async (
       });
 
     const events = await Promise.all(
-      eventParticipants.map(async (participant) => {
-        const event = await Event.findById(
-          participant.event
-        );
+      eventParticipants.map(
+        async (participant) => {
+          const event = await Event.findById(
+            participant.event
+          );
 
-        return {
-          ...participant.toObject(),
-          event: event
-            ? {
-                _id: event._id,
-                name: event.name,
-                type: event.type,
-                description: event.description,
-                startDate: event.startDate,
-                endDate: event.endDate,
-                location: event.location,
-                meetingLink: event.meetingLink,
-                modules: event.modules,
-              }
-            : null,
-        };
-      })
+          return {
+            ...participant.toObject(),
+
+            event: event
+              ? {
+                  _id: event._id,
+                  name: event.name,
+                  type: event.type,
+                  description:
+                    event.description,
+                  startDate:
+                    event.startDate,
+                  endDate:
+                    event.endDate,
+                  location:
+                    event.location,
+                  modules:
+                    event.modules,
+                }
+              : null,
+          };
+        }
+      )
     );
 
     const validEvents = events.filter(
@@ -204,7 +214,8 @@ export const deleteEventParticipant = async (
 
     if (req.user.role !== "admin") {
       return res.status(403).json({
-        message: "Only admins can remove participants",
+        message:
+          "Only admins can remove participants",
       });
     }
 

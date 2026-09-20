@@ -14,7 +14,9 @@ const generateToken = (
   const secret = process.env.JWT_SECRET;
 
   if (!secret) {
-    throw new Error("JWT_SECRET is not configured in .env");
+    throw new Error(
+      "JWT_SECRET is not configured in .env"
+    );
   }
 
   return jwt.sign(
@@ -31,7 +33,8 @@ const generateToken = (
 
 const createEmailTransporter = () => {
   const emailUser = process.env.EMAIL_USER;
-  const emailPassword = process.env.EMAIL_APP_PASSWORD;
+  const emailPassword =
+    process.env.EMAIL_APP_PASSWORD;
 
   if (!emailUser || !emailPassword) {
     throw new Error(
@@ -52,14 +55,17 @@ const sendOTPEmail = async (
   email: string,
   otp: string
 ) => {
-  const transporter = createEmailTransporter();
+  const transporter =
+    createEmailTransporter();
 
-  const emailUser = process.env.EMAIL_USER;
+  const emailUser =
+    process.env.EMAIL_USER;
 
   await transporter.sendMail({
     from: `"EventFlow" <${emailUser}>`,
     to: email,
-    subject: "Your EventFlow Verification OTP",
+    subject:
+      "Your EventFlow Verification OTP",
 
     text: `
 Your EventFlow verification OTP is: ${otp}
@@ -130,6 +136,12 @@ If you did not request this OTP, you can safely ignore this email.
   });
 };
 
+/*
+|--------------------------------------------------------------------------
+| GENERAL REGISTRATION
+|--------------------------------------------------------------------------
+*/
+
 export const register = async (
   req: Request,
   res: Response
@@ -153,7 +165,6 @@ export const register = async (
     const normalizedEmail =
       email.trim().toLowerCase();
 
-  
     const existingUser =
       await User.findOne({
         email: normalizedEmail,
@@ -165,8 +176,6 @@ export const register = async (
           "User with this email already exists.",
       });
     }
-    // Hash password
-    // --------------------------------------------------------
 
     const hashedPassword =
       await bcrypt.hash(password, 10);
@@ -179,14 +188,10 @@ export const register = async (
     const user =
       await User.create({
         name: name.trim(),
-
         email: normalizedEmail,
-
         mobile: mobile
           ? mobile.replace(/\D/g, "")
           : undefined,
-
-
         role: userRole,
       });
 
@@ -202,7 +207,6 @@ export const register = async (
         role: user.role,
       },
     });
-
   } catch (error) {
     console.error(
       "Register error:",
@@ -216,15 +220,147 @@ export const register = async (
   }
 };
 
+/*
+|--------------------------------------------------------------------------
+| ADMIN REGISTRATION
+|--------------------------------------------------------------------------
+|
+| This endpoint creates the first admin account.
+|
+| Once an admin already exists, another admin cannot
+| be created through the public signup page.
+|
+*/
+
+export const registerAdmin = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const name = String(
+      req.body.name || ""
+    ).trim();
+
+    const email = String(
+      req.body.email || ""
+    )
+      .trim()
+      .toLowerCase();
+
+    const mobile = String(
+      req.body.mobile || ""
+    ).trim();
+
+    if (!name) {
+      return res.status(400).json({
+        message:
+          "Name is required.",
+      });
+    }
+
+    if (!email) {
+      return res.status(400).json({
+        message:
+          "Email address is required.",
+      });
+    }
+
+    const emailRegex =
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        message:
+          "Please enter a valid email address.",
+      });
+    }
+
+    /*
+     * Only allow creation if there is
+     * currently no admin account.
+     */
+    const existingAdmin =
+      await User.findOne({
+        role: "admin",
+      });
+
+    if (existingAdmin) {
+      return res.status(403).json({
+        message:
+          "An admin account already exists. Please use Admin Login.",
+      });
+    }
+
+    /*
+     * Make sure the email is not already
+     * being used by another account.
+     */
+    const existingUser =
+      await User.findOne({
+        email,
+      });
+
+    if (existingUser) {
+      return res.status(409).json({
+        message:
+          "An account with this email already exists.",
+      });
+    }
+
+    /*
+     * Create admin account.
+     */
+    const admin =
+      await User.create({
+        name,
+        email,
+        mobile: mobile
+          ? mobile.replace(/\D/g, "")
+          : undefined,
+        role: "admin",
+      });
+
+    console.log(
+      `✅ Admin account created: ${admin.email}`
+    );
+
+    return res.status(201).json({
+      message:
+        "Admin account created successfully.",
+
+      user: {
+        id: admin._id,
+        name: admin.name,
+        email: admin.email,
+        mobile: admin.mobile,
+        role: admin.role,
+      },
+    });
+  } catch (error) {
+    console.error(
+      "Register admin error:",
+      error
+    );
+
+    return res.status(500).json({
+      message:
+        "Unable to create admin account. Please try again.",
+    });
+  }
+};
+
+/*
+|--------------------------------------------------------------------------
+| ADMIN LOGIN - SEND OTP
+|--------------------------------------------------------------------------
+*/
 
 export const sendAdminLoginOTP =
   async (
     req: Request,
     res: Response
   ) => {
-
     try {
-
       const email =
         req.body.email
           ?.trim()
@@ -249,7 +385,6 @@ export const sendAdminLoginOTP =
             "No admin account found with this email address.",
         });
       }
-
 
       const otp =
         crypto
@@ -279,14 +414,10 @@ export const sendAdminLoginOTP =
 
       await OTP.create({
         email,
-
         otpHash,
-
         purpose:
           "admin-login",
-
         expiresAt,
-
         attempts: 0,
       });
 
@@ -303,9 +434,7 @@ export const sendAdminLoginOTP =
         message:
           "OTP has been sent to your email address.",
       });
-
     } catch (error) {
-
       console.error(
         "Send admin OTP error:",
         error
@@ -318,17 +447,18 @@ export const sendAdminLoginOTP =
     }
   };
 
+/*
+|--------------------------------------------------------------------------
+| ADMIN LOGIN - VERIFY OTP
+|--------------------------------------------------------------------------
+*/
+
 export const verifyAdminLoginOTP =
   async (
     req: Request,
     res: Response
   ) => {
-
     try {
-      // ------------------------------------------------------
-      // Get email and OTP
-      // ------------------------------------------------------
-
       const email =
         req.body.email
           ?.trim()
@@ -337,10 +467,6 @@ export const verifyAdminLoginOTP =
       const otp =
         req.body.otp
           ?.trim();
-
-      // ------------------------------------------------------
-      // Validate input
-      // ------------------------------------------------------
 
       if (!email || !otp) {
         return res.status(400).json({
@@ -356,10 +482,6 @@ export const verifyAdminLoginOTP =
         });
       }
 
-      // ------------------------------------------------------
-      // Find admin
-      // ------------------------------------------------------
-
       const admin =
         await User.findOne({
           email,
@@ -372,10 +494,6 @@ export const verifyAdminLoginOTP =
             "Admin account not found.",
         });
       }
-
-      // ------------------------------------------------------
-      // Find latest OTP
-      // ------------------------------------------------------
 
       const otpRecord =
         await OTP.findOne({
@@ -393,15 +511,10 @@ export const verifyAdminLoginOTP =
         });
       }
 
-      // ------------------------------------------------------
-      // Check expiry
-      // ------------------------------------------------------
-
       if (
         otpRecord.expiresAt.getTime() <
         Date.now()
       ) {
-
         await OTP.deleteOne({
           _id: otpRecord._id,
         });
@@ -412,14 +525,9 @@ export const verifyAdminLoginOTP =
         });
       }
 
-      // ------------------------------------------------------
-      // Check maximum attempts
-      // ------------------------------------------------------
-
       if (
         otpRecord.attempts >= 5
       ) {
-
         await OTP.deleteOne({
           _id: otpRecord._id,
         });
@@ -430,22 +538,13 @@ export const verifyAdminLoginOTP =
         });
       }
 
-      // ------------------------------------------------------
-      // Compare OTP
-      // ------------------------------------------------------
-
       const isValid =
         await bcrypt.compare(
           otp,
           otpRecord.otpHash
         );
 
-      // ------------------------------------------------------
-      // Invalid OTP
-      // ------------------------------------------------------
-
       if (!isValid) {
-
         otpRecord.attempts += 1;
 
         await otpRecord.save();
@@ -456,17 +555,9 @@ export const verifyAdminLoginOTP =
         });
       }
 
-      // ------------------------------------------------------
-      // OTP is valid
-      // ------------------------------------------------------
-
       await OTP.deleteOne({
         _id: otpRecord._id,
       });
-
-      // ------------------------------------------------------
-      // Generate JWT
-      // ------------------------------------------------------
 
       const token =
         generateToken(
@@ -477,10 +568,6 @@ export const verifyAdminLoginOTP =
       console.log(
         `✅ Admin ${admin.email} logged in successfully.`
       );
-
-      // ------------------------------------------------------
-      // Response
-      // ------------------------------------------------------
 
       return res.status(200).json({
         message:
@@ -496,9 +583,7 @@ export const verifyAdminLoginOTP =
           role: admin.role,
         },
       });
-
     } catch (error) {
-
       console.error(
         "Verify admin OTP error:",
         error
@@ -511,12 +596,17 @@ export const verifyAdminLoginOTP =
     }
   };
 
+/*
+|--------------------------------------------------------------------------
+| PARTICIPANT LOGIN - SEND OTP
+|--------------------------------------------------------------------------
+*/
+
 export const sendParticipantLoginOTP =
   async (
     req: Request,
     res: Response
   ) => {
-
     try {
       const email =
         req.body.email
@@ -551,7 +641,6 @@ export const sendParticipantLoginOTP =
           )
           .toString();
 
-
       const otpHash =
         await bcrypt.hash(
           otp,
@@ -569,16 +658,13 @@ export const sendParticipantLoginOTP =
         purpose:
           "participant-login",
       });
+
       await OTP.create({
         email,
-
         otpHash,
-
         purpose:
           "participant-login",
-
         expiresAt,
-
         attempts: 0,
       });
 
@@ -595,9 +681,7 @@ export const sendParticipantLoginOTP =
         message:
           "OTP has been sent to your email address.",
       });
-
     } catch (error) {
-
       console.error(
         "Send participant OTP error:",
         error
@@ -610,14 +694,18 @@ export const sendParticipantLoginOTP =
     }
   };
 
+/*
+|--------------------------------------------------------------------------
+| PARTICIPANT LOGIN - VERIFY OTP
+|--------------------------------------------------------------------------
+*/
+
 export const verifyParticipantLoginOTP =
   async (
     req: Request,
     res: Response
   ) => {
-
     try {
-
       const email =
         req.body.email
           ?.trim()
@@ -626,8 +714,6 @@ export const verifyParticipantLoginOTP =
       const otp =
         req.body.otp
           ?.trim();
-
-   
 
       if (!email || !otp) {
         return res.status(400).json({
@@ -642,8 +728,6 @@ export const verifyParticipantLoginOTP =
             "OTP must be 6 digits.",
         });
       }
-
-    
 
       const participant =
         await User.findOne({
@@ -678,7 +762,6 @@ export const verifyParticipantLoginOTP =
         otpRecord.expiresAt.getTime() <
         Date.now()
       ) {
-
         await OTP.deleteOne({
           _id: otpRecord._id,
         });
@@ -692,7 +775,6 @@ export const verifyParticipantLoginOTP =
       if (
         otpRecord.attempts >= 5
       ) {
-
         await OTP.deleteOne({
           _id: otpRecord._id,
         });
@@ -710,7 +792,6 @@ export const verifyParticipantLoginOTP =
         );
 
       if (!isValid) {
-
         otpRecord.attempts += 1;
 
         await otpRecord.save();
@@ -749,9 +830,7 @@ export const verifyParticipantLoginOTP =
           role: participant.role,
         },
       });
-
     } catch (error) {
-
       console.error(
         "Verify participant OTP error:",
         error

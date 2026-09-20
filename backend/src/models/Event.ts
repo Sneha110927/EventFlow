@@ -7,7 +7,6 @@ export interface IEvent extends Document {
   startDate?: Date;
   endDate?: Date;
   location?: string;
-  meetingLink?: string;
 
   modules: {
     participants: boolean;
@@ -56,12 +55,6 @@ const eventSchema = new Schema<IEvent>(
     location: {
       type: String,
       trim: true,
-    },
-
-    meetingLink: {
-      type: String,
-      trim: true,
-      default: "",
     },
 
     modules: {

@@ -41,7 +41,6 @@ export const createEvent = async (
       startDate,
       endDate,
       location,
-      meetingLink,
       modules,
     } = req.body;
 
@@ -51,24 +50,9 @@ export const createEvent = async (
       });
     }
 
-    const virtualMeeting =
-      modules?.virtualMeeting === true;
-
-    const cleanMeetingLink = virtualMeeting
-      ? typeof meetingLink === "string"
-        ? meetingLink.trim()
-        : ""
-      : "";
-
-    if (virtualMeeting && !cleanMeetingLink) {
-      return res.status(400).json({
-        message:
-          "Meeting link is required when virtual meeting is enabled",
-      });
-    }
-
     const event = await Event.create({
       name: name.trim(),
+
       type: type.trim(),
 
       description:
@@ -77,14 +61,13 @@ export const createEvent = async (
           : "",
 
       startDate,
+
       endDate,
 
       location:
         typeof location === "string"
           ? location.trim()
           : "",
-
-      meetingLink: cleanMeetingLink,
 
       modules: {
         participants:
@@ -110,8 +93,6 @@ export const createEvent = async (
 
         travel:
           modules?.travel ?? false,
-
-        virtualMeeting,
       },
 
       createdBy: req.user.userId,
@@ -121,11 +102,6 @@ export const createEvent = async (
     console.log("EVENT SAVED TO MONGODB");
     console.log("EVENT ID:", event._id);
     console.log("EVENT NAME:", event.name);
-    console.log("MEETING LINK:", event.meetingLink);
-    console.log(
-      "VIRTUAL MEETING:",
-      event.modules.virtualMeeting
-    );
     console.log("=================================");
 
     return res.status(201).json({
@@ -175,7 +151,10 @@ export const getEventById = async (
   try {
     const id = req.params.id;
 
-    if (typeof id !== "string" || !id.trim()) {
+    if (
+      typeof id !== "string" ||
+      !id.trim()
+    ) {
       return res.status(400).json({
         message: "Event ID is required",
       });
@@ -232,7 +211,10 @@ export const updateEvent = async (
 
     const id = req.params.id;
 
-    if (typeof id !== "string" || !id.trim()) {
+    if (
+      typeof id !== "string" ||
+      !id.trim()
+    ) {
       return res.status(400).json({
         message: "Event ID is required",
       });
@@ -251,11 +233,13 @@ export const updateEvent = async (
       startDate,
       endDate,
       location,
-      meetingLink,
       modules,
     } = req.body;
 
-    const updateData: Record<string, unknown> = {};
+    const updateData: Record<
+      string,
+      unknown
+    > = {};
 
     if (name !== undefined) {
       updateData.name =
@@ -279,11 +263,13 @@ export const updateEvent = async (
     }
 
     if (startDate !== undefined) {
-      updateData.startDate = startDate;
+      updateData.startDate =
+        startDate;
     }
 
     if (endDate !== undefined) {
-      updateData.endDate = endDate;
+      updateData.endDate =
+        endDate;
     }
 
     if (location !== undefined) {
@@ -294,26 +280,6 @@ export const updateEvent = async (
     }
 
     if (modules !== undefined) {
-      const virtualMeeting =
-        modules?.virtualMeeting === true;
-
-      const cleanMeetingLink =
-        virtualMeeting
-          ? typeof meetingLink === "string"
-            ? meetingLink.trim()
-            : ""
-          : "";
-
-      if (
-        virtualMeeting &&
-        !cleanMeetingLink
-      ) {
-        return res.status(400).json({
-          message:
-            "Meeting link is required when virtual meeting is enabled",
-        });
-      }
-
       updateData.modules = {
         participants:
           modules?.participants ?? true,
@@ -338,19 +304,7 @@ export const updateEvent = async (
 
         travel:
           modules?.travel ?? false,
-
-        virtualMeeting,
       };
-
-      updateData.meetingLink =
-        cleanMeetingLink;
-    } else if (
-      meetingLink !== undefined
-    ) {
-      updateData.meetingLink =
-        typeof meetingLink === "string"
-          ? meetingLink.trim()
-          : "";
     }
 
     const event =
@@ -372,11 +326,7 @@ export const updateEvent = async (
     console.log("=================================");
     console.log("EVENT UPDATED");
     console.log("EVENT ID:", event._id);
-    console.log("MEETING LINK:", event.meetingLink);
-    console.log(
-      "VIRTUAL MEETING:",
-      event.modules.virtualMeeting
-    );
+    console.log("EVENT NAME:", event.name);
     console.log("=================================");
 
     return res.json({
@@ -414,7 +364,10 @@ export const deleteEvent = async (
 
     const id = req.params.id;
 
-    if (typeof id !== "string" || !id.trim()) {
+    if (
+      typeof id !== "string" ||
+      !id.trim()
+    ) {
       return res.status(400).json({
         message: "Event ID is required",
       });
@@ -442,12 +395,16 @@ export const deleteEvent = async (
       "EVENT ID:",
       eventObjectId.toString()
     );
-    console.log("EVENT NAME:", event.name);
+    console.log(
+      "EVENT NAME:",
+      event.name
+    );
     console.log("=================================");
 
-    const documents = await DocumentModel.find({
-      event: eventObjectId,
-    }).select("path");
+    const documents =
+      await DocumentModel.find({
+        event: eventObjectId,
+      }).select("path");
 
     for (const document of documents) {
       if (!document.path) {
@@ -461,7 +418,11 @@ export const deleteEvent = async (
           fileError &&
           typeof fileError === "object" &&
           "code" in fileError
-            ? (fileError as { code?: string }).code
+            ? (
+                fileError as {
+                  code?: string;
+                }
+              ).code
             : undefined;
 
         if (errorCode !== "ENOENT") {
