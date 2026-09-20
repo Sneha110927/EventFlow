@@ -1,5 +1,14 @@
 import { Response } from "express";
+import fs from "fs/promises";
+import mongoose from "mongoose";
+
 import Event from "../models/Event";
+import EventParticipant from "../models/EventParticipant";
+import Invitation from "../models/Invitation";
+import Announcement from "../models/Announcement";
+import DocumentModel from "../models/Document";
+import DocumentRequest from "../models/DocumentRequest";
+
 import { AuthRequest } from "../middleware/authMiddleware";
 
 export const createEvent = async (
@@ -61,16 +70,20 @@ export const createEvent = async (
     const event = await Event.create({
       name: name.trim(),
       type: type.trim(),
+
       description:
         typeof description === "string"
           ? description.trim()
           : "",
+
       startDate,
       endDate,
+
       location:
         typeof location === "string"
           ? location.trim()
           : "",
+
       meetingLink: cleanMeetingLink,
 
       modules: {
@@ -160,7 +173,19 @@ export const getEventById = async (
   res: Response
 ) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id;
+
+    if (typeof id !== "string" || !id.trim()) {
+      return res.status(400).json({
+        message: "Event ID is required",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        message: "Invalid event ID",
+      });
+    }
 
     const event = await Event.findById(id).populate(
       "createdBy",
@@ -205,7 +230,19 @@ export const updateEvent = async (
       });
     }
 
-    const { id } = req.params;
+    const id = req.params.id;
+
+    if (typeof id !== "string" || !id.trim()) {
+      return res.status(400).json({
+        message: "Event ID is required",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        message: "Invalid event ID",
+      });
+    }
 
     const {
       name,
@@ -375,10 +412,21 @@ export const deleteEvent = async (
       });
     }
 
-    const { id } = req.params;
+    const id = req.params.id;
 
-    const event =
-      await Event.findByIdAndDelete(id);
+    if (typeof id !== "string" || !id.trim()) {
+      return res.status(400).json({
+        message: "Event ID is required",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        message: "Invalid event ID",
+      });
+    }
+
+    const event = await Event.findById(id);
 
     if (!event) {
       return res.status(404).json({
@@ -386,8 +434,134 @@ export const deleteEvent = async (
       });
     }
 
-    return res.json({
-      message: "Event deleted successfully",
+    const eventObjectId = event._id;
+
+    console.log("=================================");
+    console.log("DELETE EVENT");
+    console.log(
+      "EVENT ID:",
+      eventObjectId.toString()
+    );
+    console.log("EVENT NAME:", event.name);
+    console.log("=================================");
+
+    const documents = await DocumentModel.find({
+      event: eventObjectId,
+    }).select("path");
+
+    for (const document of documents) {
+      if (!document.path) {
+        continue;
+      }
+
+      try {
+        await fs.unlink(document.path);
+      } catch (fileError: unknown) {
+        const errorCode =
+          fileError &&
+          typeof fileError === "object" &&
+          "code" in fileError
+            ? (fileError as { code?: string }).code
+            : undefined;
+
+        if (errorCode !== "ENOENT") {
+          console.error(
+            "Failed to delete document file:",
+            document.path,
+            fileError
+          );
+        }
+      }
+    }
+
+    const participantResult =
+      await EventParticipant.deleteMany({
+        event: eventObjectId,
+      });
+
+    const invitationResult =
+      await Invitation.deleteMany({
+        event: eventObjectId,
+      });
+
+    const announcementResult =
+      await Announcement.deleteMany({
+        event: eventObjectId,
+      });
+
+    const documentRequestResult =
+      await DocumentRequest.deleteMany({
+        event: eventObjectId,
+      });
+
+    const documentResult =
+      await DocumentModel.deleteMany({
+        event: eventObjectId,
+      });
+
+    const eventResult =
+      await Event.deleteOne({
+        _id: eventObjectId,
+      });
+
+    console.log("=================================");
+    console.log("EVENT DELETE RESULTS");
+
+    console.log(
+      "Participants deleted:",
+      participantResult.deletedCount
+    );
+
+    console.log(
+      "Invitations deleted:",
+      invitationResult.deletedCount
+    );
+
+    console.log(
+      "Announcements deleted:",
+      announcementResult.deletedCount
+    );
+
+    console.log(
+      "Document requests deleted:",
+      documentRequestResult.deletedCount
+    );
+
+    console.log(
+      "Documents deleted:",
+      documentResult.deletedCount
+    );
+
+    console.log(
+      "Events deleted:",
+      eventResult.deletedCount
+    );
+
+    console.log("=================================");
+
+    return res.status(200).json({
+      message:
+        "Event and all associated data deleted successfully",
+
+      deleted: {
+        participants:
+          participantResult.deletedCount,
+
+        invitations:
+          invitationResult.deletedCount,
+
+        announcements:
+          announcementResult.deletedCount,
+
+        documentRequests:
+          documentRequestResult.deletedCount,
+
+        documents:
+          documentResult.deletedCount,
+
+        events:
+          eventResult.deletedCount,
+      },
     });
   } catch (error) {
     console.error(

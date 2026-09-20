@@ -9,7 +9,6 @@ import eventRoutes from "./routes/eventRoutes";
 import invitationRoutes from "./routes/invitationRoutes";
 import eventParticipantRoutes from "./routes/eventParticipantRoutes";
 import documentRoutes from "./routes/documentRoutes";
-import chatRoutes from "./routes/chatRoutes";
 
 dotenv.config();
 
@@ -47,7 +46,6 @@ app.use(
   })
 );
 
-
 app.use(express.json());
 
 app.use("/api/announcements", announcementRoutes);
@@ -57,7 +55,6 @@ app.use("/api/events", eventRoutes);
 app.use("/api/invitations", invitationRoutes);
 app.use("/api/event-participants", eventParticipantRoutes);
 app.use("/api/documents", documentRoutes);
-app.use("/api/chat", chatRoutes);
 
 app.use("/announcements", announcementRoutes);
 app.use("/auth", authRoutes);
@@ -66,7 +63,6 @@ app.use("/events", eventRoutes);
 app.use("/invitations", invitationRoutes);
 app.use("/event-participants", eventParticipantRoutes);
 app.use("/documents", documentRoutes);
-app.use("/chat", chatRoutes);
 
 app.get("/", (_req, res) => {
   res.status(200).json({

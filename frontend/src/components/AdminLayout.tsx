@@ -8,15 +8,36 @@ interface AdminLayoutProps {
   eventName?: string;
 }
 
+interface AdminUser {
+  _id?: string;
+  name?: string;
+  email?: string;
+  role?: string;
+}
+
 const navItems = [
   { id: "dashboard", label: "Dashboard", icon: "⬡" },
   { id: "participants", label: "Participants", icon: "◎" },
   { id: "invitations", label: "Invitations", icon: "◈" },
   { id: "announcements", label: "Announcements", icon: "◉" },
   { id: "documents", label: "Documents", icon: "◧" },
-  { id: "chat", label: "Messages", icon: "◫" },
   { id: "event-builder", label: "Create Event", icon: "◱" },
 ];
+
+function getAdminUser(): AdminUser | null {
+  try {
+    const storedUser = localStorage.getItem("user");
+
+    if (!storedUser) {
+      return null;
+    }
+
+    return JSON.parse(storedUser);
+  } catch (error) {
+    console.error("Failed to load admin user:", error);
+    return null;
+  }
+}
 
 export default function AdminLayout({
   children,
@@ -25,8 +46,38 @@ export default function AdminLayout({
   onLogout,
   eventName,
 }: AdminLayoutProps) {
-  const [sidebarOpen, setSidebarOpen] =
-    useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const [adminUser] = useState<AdminUser | null>(
+    getAdminUser
+  );
+
+  const adminName =
+    adminUser?.name || "Event Admin";
+
+  const adminEmail =
+    adminUser?.email || "";
+
+  const getInitials = (name: string) => {
+    const words = name.trim().split(/\s+/);
+
+    if (words.length === 0) {
+      return "EA";
+    }
+
+    if (words.length === 1) {
+      return words[0]
+        .slice(0, 2)
+        .toUpperCase();
+    }
+
+    return `${words[0][0]}${
+      words[words.length - 1][0]
+    }`.toUpperCase();
+  };
+
+  const adminInitials =
+    getInitials(adminName);
 
   return (
     <div className="flex h-full bg-[#FAFAF7]">
@@ -66,8 +117,7 @@ export default function AdminLayout({
           </p>
 
           <p className="text-sm font-semibold text-[#5B6FD4] truncate">
-            {eventName ||
-              "Tech Summit 2026"}
+            {eventName || "Tech Summit 2026"}
           </p>
         </div>
 
@@ -97,16 +147,16 @@ export default function AdminLayout({
         <div className="px-3 py-4 border-t border-[#E8E8F0]">
           <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#F0F0FA] cursor-pointer group">
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#5B6FD4] to-[#7B8EEA] flex items-center justify-center text-white text-xs font-bold shrink-0">
-              EA
+              {adminInitials}
             </div>
 
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-[#1A1A2E] truncate">
-                Event Admin
+                {adminName}
               </p>
 
               <p className="text-xs text-[#9090A8] truncate">
-                admin@evently.io
+                {adminEmail}
               </p>
             </div>
           </div>
@@ -139,26 +189,6 @@ export default function AdminLayout({
                 item.id === currentPage
             )?.label || "Admin"}
           </h1>
-
-          <div className="flex items-center gap-2">
-            <button className="relative p-2 rounded-lg hover:bg-[#F0F0FA] transition-colors">
-              <svg
-                className="w-4.5 h-4.5 text-[#5A5A72]"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                />
-              </svg>
-
-              <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-[#D95B5B] rounded-full" />
-            </button>
-          </div>
         </header>
 
         <main className="flex-1 overflow-y-auto">

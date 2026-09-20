@@ -14,6 +14,7 @@ import {
   approveDocument,
   rejectDocument,
   downloadDocument,
+  deleteDocumentRequest,
 } from "../controllers/documentController";
 
 const router = Router();
@@ -30,13 +31,11 @@ router.get(
   getDocumentParticipants
 );
 
-
 router.post(
   "/requests",
   authMiddleware,
   createDocumentRequest
 );
-
 
 router.get(
   "/requests",
@@ -44,11 +43,18 @@ router.get(
   getDocumentRequests
 );
 
+router.delete(
+  "/requests/:requestId",
+  authMiddleware,
+  deleteDocumentRequest
+);
+
 router.get(
   "/my-requests",
   authMiddleware,
   getMyDocumentRequests
 );
+
 router.post(
   "/upload",
   authMiddleware,
@@ -62,13 +68,11 @@ router.get(
   getMyDocuments
 );
 
-
 router.get(
   "/",
   authMiddleware,
   getAllDocuments
 );
-
 
 router.put(
   "/:id/approve",

@@ -29,18 +29,6 @@ const defaultModules: Modules = {
   virtualMeeting: false,
 };
 
-const moduleLabels: Record<keyof Modules, string> = {
-  participants: "Participants",
-  registration: "Registration",
-  schedule: "Schedule",
-  documents: "Documents",
-  announcements: "Announcements",
-  chat: "Chat",
-  accommodation: "Accommodation",
-  travel: "Travel",
-  virtualMeeting: "Virtual Meeting",
-};
-
 export default function EventBuilder({
   onNavigate,
 }: EventBuilderProps) {
@@ -58,23 +46,6 @@ export default function EventBuilder({
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const updateModule = (module: keyof Modules) => {
-    setModules((current) => {
-      const updated = {
-        ...current,
-        [module]: !current[module],
-      };
-
-      if (
-        module === "virtualMeeting" &&
-        !updated.virtualMeeting
-      ) {
-        setMeetingLink("");
-      }
-
-      return updated;
-    });
-  };
 
   const handleSubmit = async (
     event: FormEvent<HTMLFormElement>
@@ -215,24 +186,14 @@ export default function EventBuilder({
     <div className="p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="font-display text-2xl text-[#1A1A2E]">
+          {/* <h1 className="font-display text-2xl text-[#1A1A2E]">
             Create New Event
           </h1>
 
           <p className="text-sm text-[#9090A8] mt-1">
             Set up your event and choose the features you need.
-          </p>
+          </p> */}
         </div>
-
-        <button
-          type="button"
-          onClick={() =>
-            onNavigate("dashboard")
-          }
-          className="px-4 py-2 rounded-xl border border-[#E8E8F0] bg-white text-sm font-medium text-[#5A5A72] hover:bg-[#F7F7F3] transition-colors"
-        >
-          Cancel
-        </button>
       </div>
 
       {error && (
@@ -364,7 +325,7 @@ export default function EventBuilder({
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-6">
+        {/* <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-6">
           <h2 className="font-semibold text-[#1A1A2E]">
             Event Modules
           </h2>
@@ -465,7 +426,7 @@ export default function EventBuilder({
               </p>
             </div>
           )}
-        </div>
+        </div> */}
 
         <div className="flex justify-end gap-3">
           <button

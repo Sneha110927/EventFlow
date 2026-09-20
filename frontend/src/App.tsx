@@ -14,7 +14,6 @@ import Participants from "./pages/admin/Participants";
 import Invitations from "./pages/admin/Invitiations";
 import Announcements from "./pages/admin/Announcements";
 import Documents from "./pages/admin/Documents";
-import Chat from "./pages/admin/Chat";
 import EventBuilder from "./pages/admin/EventBuilder";
 
 import ParticipantDashboard from "./pages/participant/Dashboard";
@@ -337,8 +336,6 @@ export default function App() {
       {view === "documents" && (
         <Documents />
       )}
-
-      {view === "chat" && <Chat />}
     </AdminLayout>
   );
 }

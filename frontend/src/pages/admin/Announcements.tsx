@@ -440,16 +440,6 @@ export default function Announcements() {
   if (events.length === 0) {
     return (
       <div className="max-w-6xl mx-auto px-8 py-12">
-        <div className="mb-8">
-          <h1 className="text-4xl font-serif text-[#15152A]">
-            Announcements
-          </h1>
-
-          <p className="text-[#9090A8] mt-2">
-            Manage announcements for your events
-          </p>
-        </div>
-
         <div className="bg-white rounded-2xl border border-[#E8E8F0] p-12 text-center">
           <div className="w-14 h-14 bg-[#EEF2FF] rounded-2xl flex items-center justify-center mx-auto mb-4">
             <svg
@@ -488,19 +478,7 @@ export default function Announcements() {
       )}
 
       <div className="flex items-start justify-between gap-6 mb-8">
-        <div>
-          <h1 className="text-4xl font-serif text-[#15152A]">
-            {view === 'create'
-              ? 'Create Announcement'
-              : 'Announcements'}
-          </h1>
-
-          <p className="text-[#9090A8] mt-2">
-            {view === 'create'
-              ? 'Send an important update to your participants'
-              : 'Manage announcements for your events'}
-          </p>
-        </div>
+        <div />
 
         {view === 'list' ? (
           <button
@@ -550,20 +528,6 @@ export default function Announcements() {
                   </option>
                 ))}
               </select>
-
-              {selectedEvent && (
-                <div className="lg:min-w-[200px]">
-                  <p className="text-xs text-[#9090A8]">
-                    Venue
-                  </p>
-
-                  <p className="font-semibold text-[#1A1A2E] mt-0.5">
-                    {selectedEvent.venue ||
-                      selectedEvent.location ||
-                      'Not specified'}
-                  </p>
-                </div>
-              )}
             </div>
           </div>
 
@@ -610,14 +574,6 @@ export default function Announcements() {
                 <p className="text-sm text-[#9090A8] mt-2">
                   There are no announcements for this event yet.
                 </p>
-
-                <button
-                  type="button"
-                  onClick={openCreateView}
-                  className="mt-5 px-5 py-2.5 rounded-full bg-[#7182DF] text-white text-sm font-semibold hover:bg-[#6072D5] transition"
-                >
-                  Create Announcement
-                </button>
               </div>
             ) : (
               <div className="divide-y divide-[#F0F0F5]">
@@ -798,90 +754,6 @@ export default function Announcements() {
               rows={6}
               className="w-full px-5 py-4 rounded-2xl border border-[#E3E3ED] bg-white outline-none resize-none text-[#1A1A2E] placeholder:text-[#A5A5B5] focus:border-[#7182DF] focus:ring-2 focus:ring-[#7182DF]/10"
             />
-          </div>
-
-          <div className="mb-8">
-            <label className="block text-sm font-semibold text-[#1A1A2E] mb-3">
-              Send To
-            </label>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <button
-                type="button"
-                onClick={() => setTarget('all')}
-                className={`p-4 rounded-xl border text-left transition ${
-                  target === 'all'
-                    ? 'border-[#7182DF] bg-[#EEF2FF]'
-                    : 'border-[#E3E3ED] bg-white hover:bg-[#FAFAFD]'
-                }`}
-              >
-                <p
-                  className={`font-semibold ${
-                    target === 'all'
-                      ? 'text-[#5B6FD4]'
-                      : 'text-[#1A1A2E]'
-                  }`}
-                >
-                  All Participants
-                </p>
-
-                <p className="text-xs text-[#9090A8] mt-1">
-                  Everyone in this event
-                </p>
-              </button>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setTarget('confirmed')
-                }
-                className={`p-4 rounded-xl border text-left transition ${
-                  target === 'confirmed'
-                    ? 'border-[#7182DF] bg-[#EEF2FF]'
-                    : 'border-[#E3E3ED] bg-white hover:bg-[#FAFAFD]'
-                }`}
-              >
-                <p
-                  className={`font-semibold ${
-                    target === 'confirmed'
-                      ? 'text-[#5B6FD4]'
-                      : 'text-[#1A1A2E]'
-                  }`}
-                >
-                  Confirmed Only
-                </p>
-
-                <p className="text-xs text-[#9090A8] mt-1">
-                  Accepted participants
-                </p>
-              </button>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setTarget('pending')
-                }
-                className={`p-4 rounded-xl border text-left transition ${
-                  target === 'pending'
-                    ? 'border-[#7182DF] bg-[#EEF2FF]'
-                    : 'border-[#E3E3ED] bg-white hover:bg-[#FAFAFD]'
-                }`}
-              >
-                <p
-                  className={`font-semibold ${
-                    target === 'pending'
-                      ? 'text-[#5B6FD4]'
-                      : 'text-[#1A1A2E]'
-                  }`}
-                >
-                  Pending Only
-                </p>
-
-                <p className="text-xs text-[#9090A8] mt-1">
-                  Pending participants
-                </p>
-              </button>
-            </div>
           </div>
 
           <div className="flex items-center gap-3">

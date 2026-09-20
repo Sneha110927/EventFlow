@@ -45,20 +45,12 @@ const API_BASE_URL =
     : "https://event-flow-nine.vercel.app";
 
 export default function Participants() {
-  const [participants, setParticipants] = useState<
-    Participant[]
-  >([]);
-
-  const [events, setEvents] = useState<EventItem[]>(
-    []
-  );
+  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [events, setEvents] = useState<EventItem[]>([]);
 
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] =
-    useState("all");
 
-  const [showInviteForm, setShowInviteForm] =
-    useState(false);
+  const [showInviteForm, setShowInviteForm] = useState(false);
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -66,79 +58,70 @@ export default function Participants() {
 
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [deletingId, setDeletingId] =
-    useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  const fetchParticipants =
-    async (): Promise<Participant[]> => {
-      const token =
-        localStorage.getItem("token");
+  const fetchParticipants = async (): Promise<Participant[]> => {
+    const token = localStorage.getItem("token");
 
-      if (!token) {
-        throw new Error(
-          "You are not logged in."
-        );
+    if (!token) {
+      throw new Error("You are not logged in.");
+    }
+
+    const response = await fetch(
+      `${API_BASE_URL}/event-participants`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       }
+    );
 
-      const response = await fetch(
-        `${API_BASE_URL}/event-participants`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+    const data: ParticipantsResponse =
+      await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.message ||
+          "Failed to load participants"
       );
+    }
 
-      const data: ParticipantsResponse =
-        await response.json();
+    return data.participants || [];
+  };
 
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            "Failed to load participants"
-        );
+  const fetchEvents = async (): Promise<EventItem[]> => {
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      throw new Error("You are not logged in.");
+    }
+
+    const response = await fetch(
+      `${API_BASE_URL}/events`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       }
+    );
 
-      return data.participants || [];
-    };
+    const data: EventsResponse =
+      await response.json();
 
-  const fetchEvents =
-    async (): Promise<EventItem[]> => {
-      const token =
-        localStorage.getItem("token");
-
-      if (!token) {
-        throw new Error(
-          "You are not logged in."
-        );
-      }
-
-      const response = await fetch(
-        `${API_BASE_URL}/events`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+    if (!response.ok) {
+      throw new Error(
+        data.message ||
+          "Failed to load events"
       );
+    }
 
-      const data: EventsResponse =
-        await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            "Failed to load events"
-        );
-      }
-
-      return data.events || [];
-    };
+    return data.events || [];
+  };
 
   useEffect(() => {
     const loadData = async () => {
@@ -240,6 +223,10 @@ export default function Participants() {
       setEmail("");
       setEventId("");
       setShowInviteForm(false);
+
+      setTimeout(() => {
+        setMessage("");
+      }, 2500);
     } catch (err: unknown) {
       console.error(
         "Invitation error:",
@@ -256,16 +243,17 @@ export default function Participants() {
     }
   };
 
+  const handleCancelInvite = () => {
+    setShowInviteForm(false);
+    setName("");
+    setEmail("");
+    setEventId("");
+    setError("");
+    setMessage("");
+  };
+
   const handleDeleteParticipant =
     async (participantId: string) => {
-      const confirmed = window.confirm(
-        "Are you sure you want to remove this participant from the event?"
-      );
-
-      if (!confirmed) {
-        return;
-      }
-
       try {
         setDeletingId(participantId);
         setError("");
@@ -312,6 +300,10 @@ export default function Participants() {
         setMessage(
           "Participant removed successfully."
         );
+
+        setTimeout(() => {
+          setMessage("");
+        }, 2500);
       } catch (err: unknown) {
         console.error(
           "Delete participant error:",
@@ -341,74 +333,38 @@ export default function Participants() {
         participant.user?.email?.toLowerCase() ||
         "";
 
-      const matchesSearch =
+      return (
         !query ||
         participantName.includes(query) ||
-        participantEmail.includes(query);
-
-      const matchesStatus =
-        statusFilter === "all" ||
-        participant.status === statusFilter;
-
-      return (
-        matchesSearch &&
-        matchesStatus
+        participantEmail.includes(query)
       );
     });
-
-  const getStatusBadge = (
-    status: Participant["status"]
-  ) => {
-    if (status === "accepted") {
-      return (
-        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
-          Accepted
-        </span>
-      );
-    }
-
-    if (status === "registered") {
-      return (
-        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
-          Registered
-        </span>
-      );
-    }
-
-    return (
-      <span className="px-3 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-600">
-        Pending
-      </span>
-    );
-  };
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <div>
-          <h2 className="font-display text-2xl text-[#1A1A2E]">
-            Participants
-          </h2>
-
-          <p className="text-sm text-[#9090A8] mt-0.5">
-            {participants.length} participant
-            {participants.length !== 1
-              ? "s"
-              : ""}
-          </p>
-        </div>
+        <div></div>
 
         <button
+          type="button"
           onClick={() => {
-            setShowInviteForm(
-              !showInviteForm
-            );
-            setMessage("");
-            setError("");
+            if (showInviteForm) {
+              handleCancelInvite();
+            } else {
+              setShowInviteForm(true);
+              setMessage("");
+              setError("");
+            }
           }}
-          className="gradient-primary text-white text-sm font-semibold px-4 py-2.5 rounded-xl shadow-soft hover:opacity-90 transition-opacity"
+          className={
+            showInviteForm
+              ? "bg-gray-100 text-gray-700 text-sm font-semibold px-4 py-2.5 rounded-xl hover:bg-gray-200 transition-colors"
+              : "gradient-primary text-white text-sm font-semibold px-4 py-2.5 rounded-xl shadow-soft hover:opacity-90 transition-opacity"
+          }
         >
-          + Invite Participant
+          {showInviteForm
+            ? "Cancel"
+            : "+ Invite Participant"}
         </button>
       </div>
 
@@ -493,20 +449,31 @@ export default function Participants() {
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={sending}
-              className="gradient-primary text-white font-semibold px-5 py-3 rounded-xl disabled:opacity-50"
-            >
-              {sending
-                ? "Sending..."
-                : "Send Invitation"}
-            </button>
+            <div className="flex gap-3">
+              <button
+                type="submit"
+                disabled={sending}
+                className="gradient-primary text-white font-semibold px-5 py-3 rounded-xl disabled:opacity-50"
+              >
+                {sending
+                  ? "Sending..."
+                  : "Send Invitation"}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCancelInvite}
+                disabled={sending}
+                className="bg-gray-100 text-gray-700 font-semibold px-5 py-3 rounded-xl hover:bg-gray-200 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
           </form>
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className="flex">
         <input
           type="text"
           placeholder="Search by name or email..."
@@ -514,62 +481,8 @@ export default function Participants() {
           onChange={(e) =>
             setSearch(e.target.value)
           }
-          className="flex-1 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#6276E8]"
+          className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#6276E8]"
         />
-
-        <div className="flex gap-2 flex-wrap">
-          <button
-            onClick={() =>
-              setStatusFilter("all")
-            }
-            className={`px-4 py-2 rounded-xl border ${
-              statusFilter === "all"
-                ? "bg-[#6276E8] text-white"
-                : "bg-white text-gray-700"
-            }`}
-          >
-            All
-          </button>
-
-          <button
-            onClick={() =>
-              setStatusFilter("accepted")
-            }
-            className={`px-4 py-2 rounded-xl border ${
-              statusFilter === "accepted"
-                ? "bg-[#6276E8] text-white"
-                : "bg-white text-gray-700"
-            }`}
-          >
-            Accepted
-          </button>
-
-          <button
-            onClick={() =>
-              setStatusFilter("registered")
-            }
-            className={`px-4 py-2 rounded-xl border ${
-              statusFilter === "registered"
-                ? "bg-[#6276E8] text-white"
-                : "bg-white text-gray-700"
-            }`}
-          >
-            Registered
-          </button>
-
-          <button
-            onClick={() =>
-              setStatusFilter("pending")
-            }
-            className={`px-4 py-2 rounded-xl border ${
-              statusFilter === "pending"
-                ? "bg-[#6276E8] text-white"
-                : "bg-white text-gray-700"
-            }`}
-          >
-            Pending
-          </button>
-        </div>
       </div>
 
       {error && !showInviteForm && (
@@ -599,15 +512,7 @@ export default function Participants() {
                   </th>
 
                   <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500">
-                    REGISTRATION
-                  </th>
-
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500">
                     INVITATION
-                  </th>
-
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500">
-                    DOCUMENTS
                   </th>
 
                   <th className="text-left px-6 py-4 text-xs font-semibold text-gray-500">
@@ -624,113 +529,102 @@ export default function Participants() {
                 {filtered.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={5}
                       className="text-center py-12 text-gray-400"
                     >
                       No participants found.
                     </td>
                   </tr>
                 ) : (
-                  filtered.map(
-                    (participant) => (
-                      <tr
-                        key={participant._id}
-                        className="border-b border-gray-100 hover:bg-gray-50"
-                      >
-                        <td className="px-6 py-5">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-[#6276E8] text-white flex items-center justify-center font-semibold">
-                              {participant.user?.name
-                                ?.charAt(0)
-                                .toUpperCase() ||
-                                "?"}
-                            </div>
-
-                            <div>
-                              <p className="font-semibold text-[#1A1A2E]">
-                                {participant.user
-                                  ?.name ||
-                                  "Unknown user"}
-                              </p>
-
-                              <p className="text-sm text-gray-400">
-                                {participant.user
-                                  ?.email || ""}
-                              </p>
-                            </div>
+                  filtered.map((participant) => (
+                    <tr
+                      key={participant._id}
+                      className="border-b border-gray-100 hover:bg-gray-50"
+                    >
+                      <td className="px-6 py-5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-[#6276E8] text-white flex items-center justify-center font-semibold">
+                            {participant.user?.name
+                              ?.charAt(0)
+                              .toUpperCase() ||
+                              "?"}
                           </div>
-                        </td>
 
-                        <td className="px-6 py-5">
-                          <p className="font-medium text-[#1A1A2E]">
-                            {participant.event
-                              ?.name ||
-                              "Unknown event"}
-                          </p>
+                          <div>
+                            <p className="font-semibold text-[#1A1A2E]">
+                              {participant.user?.name ||
+                                "Unknown user"}
+                            </p>
 
-                          <p className="text-sm text-gray-400">
-                            {participant.event
-                              ?.type || ""}
-                          </p>
-                        </td>
+                            <p className="text-sm text-gray-400">
+                              {participant.user?.email ||
+                                ""}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
 
-                        <td className="px-6 py-5">
-                          {participant.registrationCompleted ? (
-                            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
-                              Completed
-                            </span>
-                          ) : (
-                            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-600">
-                              Pending
-                            </span>
-                          )}
-                        </td>
+                      <td className="px-6 py-5">
+                        <p className="font-medium text-[#1A1A2E]">
+                          {participant.event?.name ||
+                            "Unknown event"}
+                        </p>
 
-                        <td className="px-6 py-5">
-                          {getStatusBadge(
-                            participant.status
-                          )}
-                        </td>
+                        <p className="text-sm text-gray-400">
+                          {participant.event?.type || ""}
+                        </p>
+                      </td>
 
-                        <td className="px-6 py-5">
-                          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-600">
-                            Missing
+                      <td className="px-6 py-5">
+                        {participant.status ===
+                        "accepted" ? (
+                          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+                            Accepted
                           </span>
-                        </td>
+                        ) : participant.status ===
+                          "registered" ? (
+                          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+                            Registered
+                          </span>
+                        ) : (
+                          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-600">
+                            Pending
+                          </span>
+                        )}
+                      </td>
 
-                        <td className="px-6 py-5 text-sm text-gray-500">
-                          {participant.joinedAt
-                            ? new Date(
-                                participant.joinedAt
-                              ).toLocaleDateString()
-                            : new Date(
-                                participant.createdAt
-                              ).toLocaleDateString()}
-                        </td>
+                      <td className="px-6 py-5 text-sm text-gray-500">
+                        {participant.joinedAt
+                          ? new Date(
+                              participant.joinedAt
+                            ).toLocaleDateString()
+                          : new Date(
+                              participant.createdAt
+                            ).toLocaleDateString()}
+                      </td>
 
-                        <td className="px-6 py-5">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              void handleDeleteParticipant(
-                                participant._id
-                              )
-                            }
-                            disabled={
-                              deletingId ===
+                      <td className="px-6 py-5">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void handleDeleteParticipant(
                               participant._id
-                            }
-                            className="px-3 py-2 rounded-lg bg-red-50 text-red-600 text-sm font-semibold hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {deletingId ===
+                            )
+                          }
+                          disabled={
+                            deletingId ===
                             participant._id
-                              ? "Removing..."
-                              : "Remove"}
-                          </button>
-                        </td>
-                      </tr>
-                    )
-                  )
+                          }
+                          className="px-3 py-2 rounded-lg bg-red-50 text-red-600 text-sm font-semibold hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {deletingId ===
+                          participant._id
+                            ? "Removing..."
+                            : "Remove"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>

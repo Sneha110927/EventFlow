@@ -16,13 +16,11 @@ import {
 
 const router = Router();
 
-
 router.post(
   "/",
   authMiddleware,
   createEvent
 );
-
 
 router.get(
   "/",
@@ -36,7 +34,6 @@ router.get(
   getMyEvents
 );
 
-
 router.get(
   "/:id",
   authMiddleware,
@@ -48,7 +45,6 @@ router.put(
   authMiddleware,
   updateEvent
 );
-
 
 router.delete(
   "/:id",

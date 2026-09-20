@@ -26,7 +26,6 @@ interface InvitationData {
       schedule?: boolean;
       documents?: boolean;
       announcements?: boolean;
-      chat?: boolean;
       accommodation?: boolean;
       travel?: boolean;
       virtualMeeting?: boolean;
@@ -603,7 +602,7 @@ export default function AcceptInvitation({
 
           <div className="p-6">
             <div className="mb-5">
-              <p className="text-[#77778D] text-xs">
+              {/* <p className="text-[#77778D] text-xs">
                 Hello,
               </p>
 
@@ -613,7 +612,7 @@ export default function AcceptInvitation({
 
               <p className="text-xs text-[#9090A8] mt-1">
                 {invitation?.email}
-              </p>
+              </p> */}
             </div>
 
             {invitation?.event && (

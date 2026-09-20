@@ -772,13 +772,13 @@ export default function Invitations() {
       )}
 
       <div>
-        <h2 className="font-display text-2xl text-[#1A1A2E]">
+        {/* <h2 className="font-display text-2xl text-[#1A1A2E]">
           Invitations
-        </h2>
+        </h2> */}
 
-        <p className="text-sm text-[#9090A8] mt-1">
+      {/* <p className=" text-[#1A1A2E] mt-1">
           Manage invitations for your events
-        </p>
+        </p> */}
       </div>
 
       <div className="bg-white rounded-2xl border border-[#E8E8F0] shadow-soft p-5">
