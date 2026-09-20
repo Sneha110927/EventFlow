@@ -1076,13 +1076,13 @@ export default function ParticipantDashboard({
 
       <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
         <div className="gradient-primary rounded-2xl p-6 text-white shadow-card">
-          <p className="text-white/70 text-sm">
+          {/* <p className="text-white/70 text-sm">
             Welcome back,
           </p>
 
           <h1 className="font-display text-3xl mt-1 mb-4">
             {participant?.name}
-          </h1>
+          </h1> */}
 
           <div className="flex flex-wrap gap-6">
             <div>
